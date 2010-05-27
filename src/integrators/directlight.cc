@@ -36,6 +36,7 @@ class YAFRAYPLUGIN_EXPORT directLighting_t: public mcIntegrator_t
 		virtual bool preprocess();
 		virtual colorA_t integrate(renderState_t &state, diffRay_t &ray) const;
 		static integrator_t* factory(paraMap_t &params, renderEnvironment_t &render);
+		std::map<const object3d_t*, photonMap_t*>	SSSMaps;
 };
 
 directLighting_t::directLighting_t(bool transpShad, int shadowDepth, int rayDepth)
@@ -77,7 +78,22 @@ bool directLighting_t::preprocess()
 		set << "Caustics:" << nCausPhotons << " photons. ";
 	}
 	
-	if(useAmbientOcclusion)
+	{
+		progressBar_t *pb;
+		if(intpb) pb = intpb;
+		else pb = new ConsoleProgressBar_t(80);
+		success = createSSSMaps(*scene, lights, SSSMaps, cDepth, nPhotons, pb, integratorName );
+		if(!intpb) delete pb;
+		if(!set.str().empty()) set << "+";
+		set << "SSS:" << nPhotons << " photons. ";
+		std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.begin();
+		while (it!=SSSMaps.end()) {
+			Y_INFO << "SSS:" << it->second->nPhotons() << " photons. " << yendl;
+			it++;
+		}
+	}
+	
+	if(do_AO)
 	{
 		if(!set.str().empty()) set << "+";
 		set << "AO";
@@ -111,6 +127,10 @@ colorA_t directLighting_t::integrate(renderState_t &state, diffRay_t &ray) const
 		material->initBSDF(state, sp, bsdfs);
 		
 		if(bsdfs & BSDF_EMIT) col += material->emit(state, sp, wo);
+		if(bsdfs & BSDF_DIFFUSE) col += estimateDirect_PH(state, sp, lights, scene, wo, trShad, sDepth);
+		if(bsdfs & BSDF_DIFFUSE) col += estimatePhotons(state, sp, causticMap, wo, nSearch, cRadius);
+		if(bsdfs & BSDF_TRANSLUCENT) col += estimateSSSMaps(state, sp, SSSMaps, wo );
+		if((bsdfs & BSDF_DIFFUSE) && do_AO) col += sampleAO(state, sp, wo);
 		
 		if(bsdfs & BSDF_DIFFUSE)
 		{

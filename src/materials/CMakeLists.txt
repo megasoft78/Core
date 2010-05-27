@@ -26,5 +26,8 @@ target_link_libraries(simplemats yafaraycore)
 add_library(volumetrics SHARED beer.cc)
 target_link_libraries(volumetrics yafaraycore)
 
-install (TARGETS glass roughglass blendermat glossymat shinydiffuse coatedglossy simplemats volumetrics
+add_library(translucent SHARED translucent.cc)
+target_link_libraries(translucent yafaraycore)
+
+install (TARGETS glass blendermat glossymat shinydiffuse coatedglossy simplemats volumetrics translucent
 		${YAF_TARGET_TYPE} DESTINATION ${YAF_PLUGIN_DIR})

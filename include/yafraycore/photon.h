@@ -104,6 +104,7 @@ class photon_t
 		color_t c;
 		normal_t dir;
 #endif
+		vector3d_t hitNormal;
 };
 
 struct radData_t
@@ -143,6 +144,7 @@ class YAFRAYCORE_EXPORT photonMap_t
 	//	void gather(const point3d_t &P, std::vector< foundPhoton_t > &found, unsigned int K, PFLOAT &sqRadius) const;
 		int gather(const point3d_t &P, foundPhoton_t *found, unsigned int K, PFLOAT &sqRadius) const;
 		const photon_t* findNearest(const point3d_t &P, const vector3d_t &n, PFLOAT dist) const;
+		const std::vector<photon_t>& getAllPhotons(const point3d_t& woP) const { return photons; }
 	protected:
 		std::vector<photon_t> photons;
 		int paths; //!< amount of photon paths that have been traced for generating the map
