@@ -547,7 +547,7 @@ color_t estimateSSSMaps(renderState_t &state, const surfacePoint_t &sp, const st
 	if ( it == SSSMaps.end() ) {
 		return sum;
 	}
-	const photonMap_t* sssMap_t = it->second;
+	photonMap_t* sssMap_t = it->second;
 	BSDF_t bsdfs;
 	
 	void *o_udat = state.userdata;
@@ -567,12 +567,14 @@ color_t estimateSSSMaps(renderState_t &state, const surfacePoint_t &sp, const st
 	//std::cout << "sigma_a = " << sigma_a.R << "  sigma_s = " << sigma_s.R << "  IOR = " << IOR << std::endl;
 	
 	// sum all photon in translucent object
-	const std::vector<photon_t>& photons = sssMap_t->getAllPhotons(sp.P);
+	const std::vector<const photon_t*>& photons = sssMap_t->getAllPhotons(sp.P);
+	
+	//std::cout << "Sample " << state.pixelNumber << "    Get photons number is " << photons.size() << std::endl;
 	
 	for (uint i=0; i<photons.size(); i++) {
-		sum += dipole(photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
+		sum += dipole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
 	}
-	sum *= (float)sssMap_t->nPhotons()/(float)sssMap_t->nPaths();
+	sum *= 10000.f/(float)sssMap_t->nPhotons();
 	//std::cout << "sum = " << sum << std::endl;
 	
 	state.userdata = o_udat;
@@ -618,7 +620,7 @@ color_t dipole(const photon_t& inPhoton, const surfacePoint_t &sp, const vector3
 	fresnel(wo, No, IOR, Kr_o, Kt_o);
 	
 	vector3d_t v = inPhoton.pos-sp.P;
-	float r  = v.lengthSqr()*500.f;
+	float r  = v.length()*100.f;
 	
 	// compute RD
 	rd.R = cosWiN*Li.R*Kt_i*Kt_o*RD(sigmaS.R, sigmaA.R, g, IOR, r)/M_PI;

@@ -88,6 +88,7 @@ bool directLighting_t::preprocess()
 		set << "SSS:" << nPhotons << " photons. ";
 		std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.begin();
 		while (it!=SSSMaps.end()) {
+			it->second->updateTree();
 			Y_INFO << "SSS:" << it->second->nPhotons() << " photons. " << yendl;
 			it++;
 		}
