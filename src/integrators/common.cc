@@ -569,7 +569,7 @@ color_t estimateSSSMaps(renderState_t &state, const surfacePoint_t &sp, const st
 	// sum all photon in translucent object
 	const std::vector<const photon_t*>& photons = sssMap_t->getAllPhotons(sp.P);
 	
-	std::cout << "Sample " << state.pixelNumber << "    Get photons number is " << photons.size() << std::endl;
+	//std::cout << "Sample " << state.pixelNumber << "    Get photons number is " << photons.size() << std::endl;
 	
 	for (uint i=0; i<photons.size(); i++) {
 		sum += dipole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
