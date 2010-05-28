@@ -352,38 +352,34 @@ void photonKdTree<T>::recursiveLookup(const point3d_t &p, const LookupProc &proc
 			return;
 		}
 		
-		// compute the angle of node to p
-		vector3d_t ptoCenter = p - currNode->nodeBound.center();
-		vector3d_t boxDiag = currNode->nodeBound.g-currNode->nodeBound.a;
-		
-		//std::cout << "ptoCenter is " << ptoCenter << std::endl;
-		//std::cout << "boxDiag is " << boxDiag << std::endl;
-		
-		float diagDis = boxDiag.length();
-		float ptocDis = ptoCenter.length();
-		ptoCenter.normalize();
-		boxDiag.normalize();
-		
-		
-		//std::cout << "diagDis is " << diagDis << std::endl;
-		//std::cout << "ptocDis is " << ptocDis << std::endl;
-		
-		float cosAng = ptoCenter*boxDiag;
-		float sinAng = fSqrt(1-cosAng*cosAng);
-		
-		//std::cout << "cosAng is " << cosAng << std::endl;
-		//std::cout << "sinAng is " << sinAng << std::endl;
-		
-		float aperture = sinAng*diagDis/ptocDis;
-		
-		//std::cout << "aperture is " << aperture << std::endl;
-		//std::cout << "" << std::endl;
-		
-		if (ptocDis > 0.1 && aperture <= threshold) {
-			array.push_back(currNode->data);
-			return;
+		if( !currNode->nodeBound.includes(p) )
+		{
+			// compute the angle of node to p
+			vector3d_t ptoCenter = p - currNode->nodeBound.center();
+			vector3d_t boxDiag = currNode->nodeBound.g-currNode->nodeBound.a;
+			
+			//std::cout << "ptoCenter is " << ptoCenter << std::endl;
+			//std::cout << "boxDiag is " << boxDiag << std::endl;
+			
+			float diagDis = boxDiag.length();
+			float ptocDis = ptoCenter.length();
+			ptoCenter.normalize();
+			boxDiag.normalize();
+			
+			float cosAng1 = ptoCenter*boxDiag;
+			boxDiag.x *= -1.f;
+			float cosAng2 = ptoCenter*boxDiag;
+			
+			float cosAng = fabs(cosAng1)<fabs(cosAng2)?cosAng1:cosAng2;
+			float sinAng = fSqrt(1-cosAng*cosAng);
+			
+			float aperture = sinAng*diagDis/ptocDis;
+			
+			if (ptocDis > 0.1 && aperture <= threshold) {
+				array.push_back(currNode->data);
+				return;
+			}
 		}
-		
 		// compute left
 		recursiveGetPhotons(p,array,nodeNum+1,threshold);
 		
