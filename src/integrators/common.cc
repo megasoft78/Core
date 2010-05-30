@@ -487,13 +487,11 @@ bool createSSSMaps( const scene_t &scene, const std::vector<light_t *> &lights, 
 						sssMap_t->setNumPaths(curr);
 						SSSMaps[hitObj] = sssMap_t;
 					}
-					done = true;
 				} 
 				break;
 				//cMap.pushPhoton(np);
 				//cMap.setNumPaths(curr);
 			}
-			/*
 			 // need to break in the middle otherwise we scatter the photon and then discard it => redundant
 			 if(nBounces == maxBounces) break;
 			 // scatter photon
@@ -522,8 +520,7 @@ bool createSSSMaps( const scene_t &scene, const std::vector<light_t *> &lights, 
 			 ray.dir = wo;
 			 ray.tmin = 0.001;
 			 ray.tmax = -1.0;
-			 ++nBounces;*/
-			break;
+			 ++nBounces;
 		}
 		++curr;
 		if(curr % pbStep == 0) pb->update();
@@ -574,7 +571,7 @@ color_t estimateSSSMaps(renderState_t &state, const surfacePoint_t &sp, const st
 	for (uint i=0; i<photons.size(); i++) {
 		sum += dipole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
 	}
-	sum *= 100.f/(float)sssMap_t->nPhotons();
+	sum *= 1.f/(float)sssMap_t->nPhotons();
 	//std::cout << "sum = " << sum << std::endl;
 	
 	state.userdata = o_udat;
@@ -620,7 +617,7 @@ color_t dipole(const photon_t& inPhoton, const surfacePoint_t &sp, const vector3
 	fresnel(wo, No, IOR, Kr_o, Kt_o);
 	
 	vector3d_t v = inPhoton.pos-sp.P;
-	float r  = v.length()*10.f;
+	float r  = v.length();
 	
 	// compute RD
 	rd.R = cosWiN*Li.R*Kt_i*Kt_o*RD(sigmaS.R, sigmaA.R, g, IOR, r)/M_PI;

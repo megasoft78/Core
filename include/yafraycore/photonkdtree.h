@@ -123,8 +123,6 @@ photonKdTree<T>::photonKdTree(const std::vector<T> &dat)
 	
 	recursiveSumPhotons(0);
 	
-	
-	std::cout << "test: " << nodes[0].photonNum << std::endl;
 	Y_INFO << "photonKdTree: Tree built." << yendl;
 	
 	delete[] elements;
@@ -369,13 +367,19 @@ void photonKdTree<T>::recursiveLookup(const point3d_t &p, const LookupProc &proc
 			float cosAng1 = ptoCenter*boxDiag;
 			boxDiag.x *= -1.f;
 			float cosAng2 = ptoCenter*boxDiag;
+			boxDiag.y *= -1.f;
+			float cosAng3 = ptoCenter*boxDiag;
+			boxDiag.x *= -1.f;
+			float cosAng4 = ptoCenter*boxDiag;
 			
 			float cosAng = fabs(cosAng1)<fabs(cosAng2)?cosAng1:cosAng2;
+			cosAng = fabs(cosAng)<fabs(cosAng3)?cosAng:cosAng3;
+			cosAng = fabs(cosAng)<fabs(cosAng4)?cosAng:cosAng4;
 			float sinAng = fSqrt(1-cosAng*cosAng);
 			
 			float aperture = sinAng*diagDis/ptocDis;
 			
-			if (ptocDis > 0.1 && aperture <= threshold) {
+			if (ptocDis > (diagDis) && aperture <= threshold) {
 				array.push_back(currNode->data);
 				return;
 			}

@@ -42,7 +42,7 @@ struct TranslucentData_t
 class translucentMat_t: public nodeMaterial_t
 {
 	public:
-		translucentMat_t(color_t diffuseC);
+		translucentMat_t(color_t diffuseC, color_t siga, color_t sigs, float ior);
 		virtual ~translucentMat_t();
 		virtual void initBSDF(const renderState_t &state, const surfacePoint_t &sp, unsigned int &bsdfTypes)const;
 		virtual color_t eval(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, const vector3d_t &wl, BSDF_t bsdfs)const;
@@ -57,12 +57,14 @@ class translucentMat_t: public nodeMaterial_t
 		float	IOR;
 };
 
-translucentMat_t::translucentMat_t(color_t diffuseC):diffuseCol(diffuseC)
+translucentMat_t::translucentMat_t(color_t diffuseC,color_t siga, color_t sigs, float ior):diffuseCol(diffuseC),sigma_a(siga),sigma_s(sigs),IOR(ior)
 {
 	bsdfFlags = BSDF_TRANSLUCENT;
-	sigma_a = color_t(0.1);
-	sigma_s = color_t(1.f);
-	IOR = 1.5f;
+	diffuseCol = diffuseC;
+	sigma_a = siga;
+	sigma_s = sigs;
+	IOR = ior;
+	//std::cout << sigma_a << " " << sigma_s << " " << IOR << std::endl;
 }
 
 translucentMat_t::~translucentMat_t()
@@ -96,7 +98,11 @@ color_t translucentMat_t::eval(const renderState_t &state, const surfacePoint_t 
 	{
 		scolor = diffuseCol;
 	}
-	return scolor;
+	
+	float Kr, Kt;
+	fresnel(wl, N, IOR, Kr, Kt);
+	
+	return scolor*Kr;
 }
 
 color_t translucentMat_t::sample(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, vector3d_t &wi, sample_t &s)const
@@ -128,9 +134,16 @@ float translucentMat_t::pdf(const renderState_t &state, const surfacePoint_t &sp
 
 material_t* translucentMat_t::factory(paraMap_t &params, std::list< paraMap_t > &eparans, renderEnvironment_t &env)
 {
-	color_t col(1.0);
+	color_t col(1.0f);
+	color_t siga(0.01f);
+	color_t sigs(1.0f);
+	float ior = 1.3;
 	params.getParam("color", col);
-	return new translucentMat_t(col);
+	params.getParam("sigmaA", siga);
+	params.getParam("sigmaS", sigs);
+	params.getParam("IOR", ior);
+	
+	return new translucentMat_t(col,siga,sigs,ior);
 }
 
 extern "C"
