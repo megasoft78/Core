@@ -118,7 +118,11 @@ color_t translucentMat_t::sample(const renderState_t &state, const surfacePoint_
 	cos_Ng_wi = sp.Ng*wi;
 	if(cos_Ng_wo*cos_Ng_wi > 0)
 		scolor = diffuseCol;
-	return scolor;
+	
+	float Kr, Kt;
+	fresnel(wi, N, IOR, Kr, Kt);
+	
+	return scolor*Kr;
 }
 
 color_t translucentMat_t::emit(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo)const

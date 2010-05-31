@@ -41,6 +41,10 @@ class YAFRAYPLUGIN_EXPORT photonIntegrator_t: public mcIntegrator_t
 		float gatherDist; //!< minimum distance to terminate path tracing (unless gatherBounces is reached)
 		photonMap_t diffuseMap;
 		photonMap_t radianceMap; //!< this map contains precomputed radiance "photons", not incoming photon marks
+		std::map<const object3d_t*, photonMap_t*>	SSSMaps; //!< this maps is for subsurface scattering objects.
+		pdf1D_t *lightPowerD;
+		std::vector<light_t*> lights;
+		BSDF_t allBSDFIntersect;
 		friend class prepassWorker_t;
 };
 

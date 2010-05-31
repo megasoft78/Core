@@ -298,6 +298,37 @@ bool photonIntegrator_t::preprocess()
 					pgdat.rad_points.push_back(rd);
 				}
 			}
+			
+			//*******************************************************
+			//added by ronnie for translucent material
+			
+			else if(bsdfs & BSDF_TRANSLUCENT)
+			{
+				// if photon intersect with SSS material, add this photon to cooresponding object's SSSMap and absorb it
+				photon_t np(wi, sp.P, pcol);
+				np.hitNormal = sp.N;
+				const object3d_t* hitObj = sp.object;
+				if(hitObj)
+				{
+					//std::cout << curr <<" bounces:" << nBounces << std::endl;
+					std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.find(hitObj);
+					if(it!=SSSMaps.end()){
+						// exist SSSMap for this object
+						SSSMaps[hitObj]->pushPhoton(np);
+						SSSMaps[hitObj]->setNumPaths(curr);
+					}
+					else {
+						// need create a new SSSMap for this object
+						photonMap_t* sssMap_t = new photonMap_t();
+						sssMap_t->pushPhoton(np);
+						sssMap_t->setNumPaths(curr);
+						SSSMaps[hitObj] = sssMap_t;
+					}
+				} 
+			}
+			
+			//*******************************************************
+			
 			// need to break in the middle otherwise we scatter the photon and then discard it => redundant
 			if(nBounces == maxBounces) break;
 			// scatter photon
@@ -515,6 +546,16 @@ bool photonIntegrator_t::preprocess()
 		pb->setTag("Building caustic photons kd-tree...");
 		causticMap.updateTree();
 		Y_INFO << integratorName << ": Done." << yendl;
+	}
+	
+	{
+		Y_INFO << integratorName << ": Building SSS photons kd-tree:" << yendl;
+		std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.begin();
+		while (it!=SSSMaps.end()) {
+			it->second->updateTree();
+			Y_INFO << "SSS:" << it->second->nPhotons() << " photons. " << yendl;
+			it++;
+		}		
 	}
 
 	if(diffuseMap.nPhotons() < 50)
@@ -811,11 +852,11 @@ colorA_t photonIntegrator_t::integrate(renderState_t &state, diffRay_t &ray) con
 				// contribution of light emitting surfaces
 				if(bsdfs & BSDF_EMIT) col += material->emit(state, sp, wo);
 				
-				if(bsdfs & BSDF_DIFFUSE)
-				{
-					col += estimateAllDirectLight(state, sp, wo);
-					col += finalGathering(state, sp, wo);
-				}
+				if(bsdfs & (BSDF_DIFFUSE|BSDF_TRANSLUCENT)) col += estimateDirect_PH(state, sp, lights, scene, wo, trShad, sDepth);
+				
+				if(bsdfs & BSDF_TRANSLUCENT) col += estimateSSSMaps(state, sp, SSSMaps, wo );
+				
+				if(bsdfs & BSDF_DIFFUSE) col += finalGathering(state, sp, wo);
 			}
 		}
 		else

@@ -545,6 +545,15 @@ color_t estimateSSSMaps(renderState_t &state, const surfacePoint_t &sp, const st
 		return sum;
 	}
 	photonMap_t* sssMap_t = it->second;
+	
+	float photonSum = 0;
+	it = SSSMaps.begin();
+	while (it!=SSSMaps.end())
+	{
+		photonSum += it->second->nPhotons();
+		it++;
+	}
+	
 	BSDF_t bsdfs;
 	
 	void *o_udat = state.userdata;
@@ -571,7 +580,7 @@ color_t estimateSSSMaps(renderState_t &state, const surfacePoint_t &sp, const st
 	for (uint i=0; i<photons.size(); i++) {
 		sum += dipole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
 	}
-	sum *= 1.f/(float)sssMap_t->nPhotons();
+	sum *= 1.f/photonSum;//(float)sssMap_t->nPhotons();
 	//std::cout << "sum = " << sum << std::endl;
 	
 	state.userdata = o_udat;
