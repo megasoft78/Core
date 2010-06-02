@@ -20,6 +20,8 @@ option(WITH_OSX_ADDON "Enable the use of blender's included python lib on OSX pl
 option(BUILDRELEASE "Enable release mode building of YafaRay" OFF)
 option(DEBUG_BUILD "Enable debug build mode" OFF)
 option(EMBED_FONT_QT "Embed font for QT GUI (usefull for some buggy QT installations)" OFF)
+option(WITH_TESTS "Enable building test applications for various components of Yafaray" OFF)
+option(WITH_OPENCL "Enable the use of OpenCL and GPU accelerated rendering where avaialble" OFF)
 
 ###### Packages and Definitions #########
 
@@ -160,6 +162,10 @@ else(WITH_YAF_RUBY_BINDINGS)
 	message("Building Ruby bindings: no")
 endif(WITH_YAF_RUBY_BINDINGS)
 
+if (WITH_OPENCL)
+	find_package(OpenCL REQUIRED)
+endif (WITH_OPENCL)
+
 if(DEBUG_BUILD)
 	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build mode" FORCE)
 else(DEBUG_BUILD)
@@ -291,6 +297,15 @@ endif (USER_DBGFLAGS)
 # Adding subdirectories
 
 add_subdirectory(src)
+
+if (WITH_TESTS)
+	add_subdirectory(test)
+endif (WITH_TESTS)
+
+if (WITH_YAF_PY_BINDINGS)
+	include(${SWIG_USE_FILE})
+	add_subdirectory(bindings)
+endif (WITH_YAF_PY_BINDINGS)
 
 # Generating config headers
 
