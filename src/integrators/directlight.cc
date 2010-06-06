@@ -78,23 +78,7 @@ bool directLighting_t::preprocess()
 		set << "Caustics:" << nCausPhotons << " photons. ";
 	}
 	
-	{
-		progressBar_t *pb;
-		if(intpb) pb = intpb;
-		else pb = new ConsoleProgressBar_t(80);
-		success = createSSSMaps(*scene, lights, SSSMaps, cDepth, nPhotons, pb, integratorName );
-		if(!intpb) delete pb;
-		if(!set.str().empty()) set << "+";
-		set << "SSS:" << nPhotons << " photons. ";
-		std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.begin();
-		while (it!=SSSMaps.end()) {
-			it->second->updateTree();
-			Y_INFO << "SSS:" << it->second->nPhotons() << " photons. " << yendl;
-			it++;
-		}
-	}
-	
-	if(do_AO)
+	if(useAmbientOcclusion)
 	{
 		if(!set.str().empty()) set << "+";
 		set << "AO";
@@ -128,11 +112,6 @@ colorA_t directLighting_t::integrate(renderState_t &state, diffRay_t &ray) const
 		material->initBSDF(state, sp, bsdfs);
 		
 		if(bsdfs & BSDF_EMIT) col += material->emit(state, sp, wo);
-		//if(bsdfs & (BSDF_DIFFUSE)) col += estimateDirect_PH(state, sp, lights, scene, wo, trShad, sDepth);
-		if(bsdfs & (BSDF_DIFFUSE|BSDF_TRANSLUCENT)) col += estimateDirect_PH(state, sp, lights, scene, wo, trShad, sDepth);
-		if(bsdfs & BSDF_DIFFUSE) col += estimatePhotons(state, sp, causticMap, wo, nSearch, cRadius);
-		if(bsdfs & BSDF_TRANSLUCENT) col += estimateSSSMaps(state, sp, SSSMaps, wo );
-		if((bsdfs & (BSDF_DIFFUSE|BSDF_TRANSLUCENT)) && do_AO) col += sampleAO(state, sp, wo);
 		
 		if(bsdfs & BSDF_DIFFUSE)
 		{
@@ -154,60 +133,6 @@ colorA_t directLighting_t::integrate(renderState_t &state, diffRay_t &ray) const
 	state.userdata = o_udat;
 	state.includeLights = oldIncludeLights;
 	return colorA_t(col, alpha);
-}
-
-color_t directLighting_t::sampleAO(renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo) const
-{
-	color_t col(0.f), surfCol(0.f), scol(0.f);
-	bool shadowed;
-	const material_t *material = sp.material;
-	ray_t lightRay;
-	lightRay.from = sp.P;
-	
-	int n = AO_samples;
-	if(state.rayDivision > 1) n = std::max(1, n / state.rayDivision);
-
-	unsigned int offs = n * state.pixelSample + state.samplingOffs;
-	Halton hal3(3);
-
-	hal3.setStart(offs-1);
-
-	for(int i = 0; i < n; ++i)
-	{
-		float s1 = RI_vdC(offs+i);
-		float s2 = hal3.getNext();
-		
-		if(state.rayDivision > 1)
-		{
-			s1 = addMod1(s1, state.dc1);
-			s2 = addMod1(s2, state.dc2);
-		}
-		
-		lightRay.tmin = YAF_SHADOW_BIAS; // < better add some _smart_ self-bias value...this is still bad...
-		lightRay.tmax = AO_dist;
-		
-		sample_t s(s1, s2, BSDF_GLOSSY | BSDF_DIFFUSE | BSDF_REFLECT | BSDF_TRANSLUCENT);
-		surfCol = material->sample(state, sp, wo, lightRay.dir, s);
-		
-		if(material->getFlags() & BSDF_EMIT)
-		{
-			col += material->emit(state, sp, wo) * s.pdf;
-		}
-		
-		if(s.pdf > 1e-6f)
-		{
-			shadowed = (trShad) ? scene->isShadowed(state, lightRay, sDepth, scol) : scene->isShadowed(state, lightRay);
-			
-			if(!shadowed)
-			{
-				float cos = std::fabs(sp.N * lightRay.dir);
-				if(trShad) col += AO_col * scol * surfCol * cos / s.pdf;
-				else col += AO_col * surfCol * cos / s.pdf;
-			}
-		}
-	}
-	
-	return col / (float)n;
 }
 
 integrator_t* directLighting_t::factory(paraMap_t &params, renderEnvironment_t &render)

@@ -2,10 +2,10 @@ include_directories(${YAF_INCLUDE_DIRS})
 
 add_definitions(-DBUILDING_YAFRAYPLUGIN)
 
-add_library(directlight SHARED directlight.cc common.cc)
+add_library(directlight SHARED directlight.cc)
 target_link_libraries(directlight yafaraycore)
 
-add_library(photonmap SHARED photonintegr.cc common.cc)
+add_library(photonmap SHARED photonintegr.cc)
 target_link_libraries(photonmap yafaraycore)
 
 if(WITH_OPENCL)
