@@ -102,7 +102,7 @@ color_t translucentMat_t::eval(const renderState_t &state, const surfacePoint_t 
 	float Kr, Kt;
 	fresnel(wl, N, IOR, Kr, Kt);
 	
-	return scolor*Kr;
+	return scolor*Kr*0;
 }
 
 color_t translucentMat_t::sample(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, vector3d_t &wi, sample_t &s)const
@@ -122,7 +122,7 @@ color_t translucentMat_t::sample(const renderState_t &state, const surfacePoint_
 	float Kr, Kt;
 	fresnel(wi, N, IOR, Kr, Kt);
 	
-	return scolor*Kr;
+	return scolor*Kr*0;
 }
 
 color_t translucentMat_t::emit(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo)const

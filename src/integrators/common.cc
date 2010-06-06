@@ -428,7 +428,7 @@ bool createSSSMaps( const scene_t &scene, const std::vector<light_t *> &lights, 
 		sL = float(curr) / float(nPhotons);
 		//sL = float(cMap.nPhotons()) / float(nPhotons);
 		int lightNum = lightPowerD->DSample(sL, &lightNumPdf);
-		if(lightNum >= numLights){ std::cout << "lightPDF sample error! "<<sL<<"/"<<lightNum<<"\n"; delete lightPowerD; return false; }
+		if(lightNum >= numLights){ std::cout << "lightPDF sample error! "<<sL<<"/"<<lightNum<< "  " << curr << "/" << nPhotons << "\n"; delete lightPowerD; return false; }
 		
 		// shoot photon
 		color_t pcol = lights[lightNum]->emitPhoton(s1, s2, s3, s4, ray, lightPdf);
@@ -580,8 +580,9 @@ color_t estimateSSSMaps(renderState_t &state, const surfacePoint_t &sp, const st
 	for (uint i=0; i<photons.size(); i++) {
 		sum += dipole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
 	}
-	sum *= 1.f/photonSum;//(float)sssMap_t->nPhotons();
-	//std::cout << "sum = " << sum << std::endl;
+	sum *= 100.f/photonSum;//(float)sssMap_t->nPhotons();
+	//sum *= 1.f/photons.size();
+	std::cout << "sum = " << sum << "" << photonSum / 10.f << std::endl;
 	
 	state.userdata = o_udat;
 	
@@ -626,7 +627,7 @@ color_t dipole(const photon_t& inPhoton, const surfacePoint_t &sp, const vector3
 	fresnel(wo, No, IOR, Kr_o, Kt_o);
 	
 	vector3d_t v = inPhoton.pos-sp.P;
-	float r  = v.length();
+	float r  = v.length()*20.f;
 	
 	// compute RD
 	rd.R = cosWiN*Li.R*Kt_i*Kt_o*RD(sigmaS.R, sigmaA.R, g, IOR, r)/M_PI;
