@@ -77,6 +77,16 @@ bool directLighting_t::preprocess()
 		if(!set.str().empty()) set << "+";
 		set << "Caustics:" << nCausPhotons << " photons. ";
 	}
+	{
+		success = createSSSMaps();
+		set << "SSS shoot:" << nCausPhotons << " photons. ";
+		std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.begin();
+		while (it!=SSSMaps.end()) {
+			it->second->updateTree();
+			Y_INFO << "SSS:" << it->second->nPhotons() << " photons. " << yendl;
+			it++;
+		}
+	}
 	
 	if(useAmbientOcclusion)
 	{
@@ -118,6 +128,11 @@ colorA_t directLighting_t::integrate(renderState_t &state, diffRay_t &ray) const
 			col += estimateAllDirectLight(state, sp, wo);
 			if(usePhotonCaustics) col += estimateCausticPhotons(state, sp, wo);
 			if(useAmbientOcclusion) col += sampleAmbientOcclusion(state, sp, wo);
+		}
+		
+		if (bsdfs & BSDF_TRANSLUCENT) {
+			col += estimateAllDirectLight(state, sp, wo);
+			col += estimateSSSMaps(state,sp,wo);
 		}
 		
 		recursiveRaytrace(state, ray, bsdfs, sp, wo, col, alpha);

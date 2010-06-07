@@ -87,4 +87,10 @@ const std::vector<const photon_t*>& photonMap_t::getAllPhotons(const point3d_t& 
 	return sssPhotons; 
 }
 
+
+int photonMap_t::numberOfPhotonInDisc(const point3d_t &p, PFLOAT scale, PFLOAT dist) const
+{
+	return tree->PhotonNumInDisc(p,scale,dist);
+}
+
 __END_YAFRAY

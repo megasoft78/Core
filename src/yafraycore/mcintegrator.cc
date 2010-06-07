@@ -27,11 +27,20 @@
 #include <yafraycore/scr_halton.h>
 #include <yafraycore/spectrum.h>
 #include <utilities/mcqmc.h>
+#include <core_api/object3d.h>
+#include <core_api/primitive.h>
 
 __BEGIN_YAFRAY
 
 #define allBSDFIntersect (BSDF_GLOSSY | BSDF_DIFFUSE | BSDF_DISPERSIVE | BSDF_REFLECT | BSDF_TRANSMIT);
 #define loffsDelta 4567 //just some number to have different sequences per light...and it's a prime even...
+
+struct TranslucentData_t
+{
+	color_t sig_s;
+	color_t sig_a;
+	float	IOR;
+};
 
 inline color_t mcIntegrator_t::estimateAllDirectLight(renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo) const
 {
@@ -716,6 +725,294 @@ void mcIntegrator_t::setICRecord(renderState_t &state, diffRay_t &ray, icRec_t *
 
 void mcIntegrator_t::cleanup() {
 	// do nothing, if IC implemented, may call the xml dump saving function
+}
+
+bool mcIntegrator_t::createSSSMaps()
+{
+	// init and compute light pdf etc.
+	ray_t ray;
+	int maxBounces = causDepth;
+	unsigned int nPhotons=nCausPhotons;
+	int numLights = lights.size();
+	float lightNumPdf, lightPdf, s1, s2, s3, s4, s5, s6, s7, sL;
+	float fNumLights = (float)numLights;
+	float *energies = new float[numLights];
+	for(int i=0;i<numLights;++i) 
+		energies[i] = lights[i]->totalEnergy().energy();
+	pdf1D_t *lightPowerD = new pdf1D_t(energies, numLights);
+	for(int i=0;i<numLights;++i) 
+		Y_INFO << "energy: "<< energies[i] <<" (dirac: "<<lights[i]->diracLight()<<")\n";
+	delete[] energies;
+	
+	// init progressbar
+	progressBar_t *pb;
+	if(intpb) pb = intpb;
+	else pb = new ConsoleProgressBar_t(80);
+	
+	int pbStep;
+	Y_INFO << integratorName << ": Building SSS photon map..." << yendl;
+	pb->init(128);
+	pbStep = std::max(1U, nPhotons / 128);
+	pb->setTag("Building SSS photon map...");
+	
+	// prepare for shooting photons
+	bool done=false;
+	unsigned int curr=0;
+	surfacePoint_t sp1, sp2;
+	surfacePoint_t *hit=&sp1, *hit2=&sp2;
+	renderState_t state;
+	unsigned char userdata[USER_DATA_SIZE+7];
+	state.userdata = (void *)( &userdata[7] - ( ((size_t)&userdata[7])&7 ) ); // pad userdata to 8 bytes
+	//std::cout<<"INFO: caustic map " << cMap.nPhotons() << std::endl;
+	
+	while(!done)
+	{
+		// sampling the light to shoot photon
+		s1 = RI_vdC(curr);
+		s2 = scrHalton(2, curr);
+		s3 = scrHalton(3, curr);
+		s4 = scrHalton(4, curr);
+		//sL = RI_S(curr);
+		sL = float(curr) / float(nPhotons);
+		//sL = float(cMap.nPhotons()) / float(nPhotons);
+		int lightNum = lightPowerD->DSample(sL, &lightNumPdf);
+		if(lightNum >= numLights){ std::cout << "lightPDF sample error! "<<sL<<"/"<<lightNum<< "  " << curr << "/" << nPhotons << "\n"; delete lightPowerD; return false; }
+		
+		// shoot photon
+		color_t pcol = lights[lightNum]->emitPhoton(s1, s2, s3, s4, ray, lightPdf);
+		ray.tmin = 0.001;
+		ray.tmax = -1.0;
+		pcol *= fNumLights*lightPdf/lightNumPdf; //remember that lightPdf is the inverse of th pdf, hence *=...
+		if(pcol.isBlack())
+		{
+			++curr;
+			done = (curr >= nPhotons) ? true : false;
+			
+			continue;
+		}
+		
+		// find instersect point
+		BSDF_t bsdfs = BSDF_NONE;
+		int nBounces=0;
+		const material_t *material = 0;
+		while( scene->intersect(ray, *hit2) )
+		{
+			if(isnan(pcol.R) || isnan(pcol.G) || isnan(pcol.B))
+			{ std::cout << "NaN WARNING (photon color)" << std::endl; break; }
+			color_t transm(1.f), vcol;
+			// check for volumetric effects
+			if(material)
+			{
+				if((bsdfs&BSDF_VOLUMETRIC) && material->volumeTransmittance(state, *hit, ray, vcol))
+				{
+					transm = vcol;
+				}
+			}
+			std::swap(hit, hit2);
+			vector3d_t wi = -ray.dir, wo;
+			material = hit->material;
+			material->initBSDF(state, *hit, bsdfs);
+			if(bsdfs & BSDF_TRANSLUCENT)
+			{
+				// if photon intersect with SSS material, add this photon to cooresponding object's SSSMap and absorb it
+				photon_t np(wi, hit->P, pcol);
+				np.hitNormal = hit->N;
+				const object3d_t* hitObj = hit->object;
+				if(hitObj)
+				{
+					//std::cout << curr <<" bounces:" << nBounces << std::endl;
+					std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.find(hitObj);
+					if(it!=SSSMaps.end()){
+						// exist SSSMap for this object
+						SSSMaps[hitObj]->pushPhoton(np);
+						SSSMaps[hitObj]->setNumPaths(curr);
+					}
+					else {
+						// need create a new SSSMap for this object
+						//std::cout << "new translucent is " << bsdfs << "   " << hitObj << std::endl;
+						photonMap_t* sssMap_t = new photonMap_t();
+						sssMap_t->pushPhoton(np);
+						sssMap_t->setNumPaths(curr);
+						SSSMaps[hitObj] = sssMap_t;
+					}
+				} 
+				break;
+				//cMap.pushPhoton(np);
+				//cMap.setNumPaths(curr);
+			}
+			// need to break in the middle otherwise we scatter the photon and then discard it => redundant
+			if(nBounces == maxBounces) break;
+			// scatter photon
+			int d5 = 3*nBounces + 5;
+			//int d6 = d5 + 1;
+			if(d5+2 <= 50)
+			{
+				s5 = scrHalton(d5, curr);
+				s6 = scrHalton(d5+1, curr);
+				s7 = scrHalton(d5+2, curr);
+			}
+			else
+			{
+				s5 = ourRandom();
+				s6 = ourRandom();
+				s7 = ourRandom();
+			}
+			pSample_t sample(s5, s6, s7, BSDF_ALL, pcol, transm);
+			bool scattered = material->scatterPhoton(state, *hit, wi, wo, sample);
+			if(!scattered) break; //photon was absorped.
+			
+			//std::cout << curr << " not translucent objects:" << std::endl;
+			
+			pcol = sample.color;
+			ray.from = hit->P;
+			ray.dir = wo;
+			ray.tmin = 0.001;
+			ray.tmax = -1.0;
+			++nBounces;
+		}
+		++curr;
+		if(curr % pbStep == 0) pb->update();
+		done = (curr >= nPhotons) ? true : false;
+		//done = (cMap.nPhotons() >= nPhotons) ? true : false;
+	}
+	pb->done();
+	pb->setTag("SSS photon map built.");
+	
+	delete lightPowerD;
+	
+	return true;
+}
+
+float RD(float sig_s, float sig_a, float g, float IOR, float r)
+{
+	float rd = 1.f/(4*M_PI);
+	float sig_s_ = (1.f-g)*sig_s;
+	float sig_t_ = sig_a + sig_s_;
+	float alpha_ = sig_s_/sig_t_;
+	float sig_tr = sqrtf(3*sig_a*sig_t_);
+	float z_r = 1.f/sig_t_;
+	float Fdr = -1.440/(IOR*IOR)+0.710/IOR+0.668+0.0636*IOR;
+	float A = (1+Fdr)/(1-Fdr);
+	float z_v = z_r*(1+4.f*A/3.f);
+	float dr = sqrtf(r*r + z_r*z_r);
+	float dv = sqrtf(r*r + z_v*z_v);
+	
+	rd *= alpha_;
+	float real = z_r*(sig_tr+1/dr)*expf(-1.f*sig_tr*dr)/(dr*dr);
+	float vir = z_v*(sig_tr+1/dv)*expf(-1.f*sig_tr*dv)/(dv*dv);
+	
+	rd *= (real+vir);
+	
+	return rd;
+}
+
+color_t dipole(const photon_t& inPhoton, const surfacePoint_t &sp, const vector3d_t &wo, float IOR, float g, const color_t &sigmaS, const color_t &sigmaA )
+{
+	color_t rd(0.f);
+	const color_t Li = inPhoton.c;
+	const vector3d_t wi = inPhoton.direction();
+	const vector3d_t No = sp.N;
+	const vector3d_t Ni = inPhoton.hitNormal;
+	
+	float cosWiN = wi*Ni;
+	
+	float Kr_i, Kt_i, Kr_o, Kt_o;
+	fresnel(wi, Ni, IOR, Kr_i, Kt_i);
+	fresnel(wo, No, IOR, Kr_o, Kt_o);
+	
+	vector3d_t v = inPhoton.pos-sp.P;
+	float r  = v.length()*10.f;
+	
+	// compute RD
+	rd.R = cosWiN*Li.R*Kt_i*Kt_o*RD(sigmaS.R, sigmaA.R, g, IOR, r)/M_PI;
+	rd.G = cosWiN*Li.G*Kt_i*Kt_o*RD(sigmaS.G, sigmaA.G, g, IOR, r)/M_PI;
+	rd.B = cosWiN*Li.B*Kt_i*Kt_o*RD(sigmaS.B, sigmaA.B, g, IOR, r)/M_PI;
+	
+	
+	//std::cout << "Kt_i=" << Kt_i << "    Kt_o=" << Kt_o << std::endl;
+	//std::cout << "r=" << r << "    rd=" << RD(sigmaS.R, sigmaA.R, g, IOR, r) << std::endl;
+	//std::cout << "Li=" << Li << "  rd=" << rd << std::endl << std::endl;
+	
+	return rd;
+}
+
+
+color_t mcIntegrator_t::estimateSSSMaps(renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo ) const
+{
+	color_t sum(0.f);
+	vector3d_t wi(0.0f);
+	const object3d_t* hitObj = sp.object;
+	
+	///////
+	//float area = 0;
+	/*const primitive_t** prims = new const primitive_t*[hitObj->numPrimitives()];
+	hitObj->getPrimitives(prims);
+	
+	for (int i=0; i<hitObj->numPrimitives(); i++) {
+		const primitive_t* prim = prims[i];
+		bound_t box = prim->getBound();
+		area += (box.longX()*box.longX() + box.longY()*box.longY() + box.longZ()*box.longZ())*0.25f*20*20;
+	}*/
+	
+	//std::cout << "The area of " << hitObj->numPrimitives() << " objects is " << area << std::endl;
+	//delete []prims;
+	///////
+	
+	std::map<const object3d_t*, photonMap_t*>::const_iterator it = SSSMaps.find(hitObj);
+	if ( it == SSSMaps.end() ) {
+		return sum;
+	}
+	photonMap_t* sssMap_t = it->second;
+	
+	float photonSum = 0;
+	it = SSSMaps.begin();
+	while (it!=SSSMaps.end())
+	{
+		photonSum += it->second->nPhotons();
+		it++;
+	}
+	
+	BSDF_t bsdfs;
+	
+	void *o_udat = state.userdata;
+	unsigned char userdata[USER_DATA_SIZE];
+	state.userdata = (void *)userdata;
+	
+	const material_t *material = sp.material;
+	material->initBSDF(state, sp, bsdfs);
+	
+	color_t sigma_s, sigma_a;
+	float IOR;
+	TranslucentData_t* dat = (TranslucentData_t*)state.userdata;
+	sigma_a = dat->sig_a;
+	sigma_s = dat->sig_s;
+	IOR = dat->IOR;
+	
+	//std::cout << "sigma_a = " << sigma_a.R << "  sigma_s = " << sigma_s.R << "  IOR = " << IOR << std::endl;
+	
+	// sum all photon in translucent object
+	const std::vector<const photon_t*>& photons = sssMap_t->getAllPhotons(sp.P);
+	
+	//std::cout << "Sample " << state.pixelNumber << "    Get photons number is " << photons.size() << std::endl;
+	//float findPhotons = sssMap_t->numberOfPhotonInDisc(sp.P,20.0f,1.f);
+	//std::cout << "Recurisive find " << findPhotons << std::endl;
+	
+	for (uint i=0; i<photons.size(); i++) {
+		sum += dipole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
+	}
+	/*
+	if (findPhotons == 0) {
+		findPhotons = photonSum;
+	}
+	sum *= 1.f/findPhotons;*/
+	sum *= 10.f*10.f*M_1_PI*0.25/photonSum;//(float)sssMap_t->nPhotons();
+	//sum *= 1.f/photons.size();
+	//std::cout << "sum = " << sum << "" << photonSum / 10.f << std::endl;
+	
+	state.userdata = o_udat;
+	
+	return sum;
+	
 }
 
 __END_YAFRAY

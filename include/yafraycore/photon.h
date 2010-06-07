@@ -146,6 +146,7 @@ class YAFRAYCORE_EXPORT photonMap_t
 		int gather(const point3d_t &P, foundPhoton_t *found, unsigned int K, PFLOAT &sqRadius) const;
 		const photon_t* findNearest(const point3d_t &P, const vector3d_t &n, PFLOAT dist) const;
 		const std::vector<const photon_t*>& getAllPhotons(const point3d_t& woP);
+		int numberOfPhotonInDisc(const point3d_t &p, PFLOAT scale, PFLOAT dist) const;
 	protected:
 		std::vector<photon_t> photons;
 		std::vector<const photon_t*> sssPhotons;

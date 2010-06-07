@@ -76,10 +76,12 @@ class photonKdTree
 		template<class LookupProc> void lookup(const point3d_t &p, const LookupProc &proc, PFLOAT &maxDistSquared) const;
 		double lookupStat()const{ return double(Y_PROCS)/double(Y_LOOKUPS); } //!< ratio of photons tested per lookup call
 		int GetPhotons( const point3d_t& p, std::vector<const T*> &array, float threshold );
+		int PhotonNumInDisc(const point3d_t& p, PFLOAT scale, PFLOAT dist) const;
 	protected:
 		template<class LookupProc> void recursiveLookup(const point3d_t &p, const LookupProc &proc, PFLOAT &maxDistSquared, int nodeNum) const;
 		void recursiveGetPhotons( const point3d_t& p, std::vector<const T*> &array, int nodeNum, float threshold );
 		void recursiveSumPhotons(int nodeNum);
+		int recursiveFindNumInDisc(const point3d_t& p, PFLOAT scale, PFLOAT dist, int nodeNum) const;
 		struct KdStack
 		{
 			const kdBoundNode<T> *node; //!< pointer to far child
@@ -390,6 +392,41 @@ void photonKdTree<T>::recursiveLookup(const point3d_t &p, const LookupProc &proc
 		// compute right
 		recursiveGetPhotons(p,array,currNode->getRightChild(),threshold);
 	}
+	
+	template<class T>
+	int photonKdTree<T>::PhotonNumInDisc(const point3d_t& p, PFLOAT scale, PFLOAT dist) const
+	{
+		return recursiveFindNumInDisc(p,scale,dist,0);
+	}
+	
+	template<class T>
+	int photonKdTree<T>::recursiveFindNumInDisc(const point3d_t& p, PFLOAT scale, PFLOAT dist, int nodeNum) const
+	{
+		kdBoundNode<T> *currNode = &nodes[nodeNum];
+		const T* dat = currNode->data;
+		
+		if(currNode->IsLeaf())
+		{
+			vector3d_t v = dat->pos-p;
+			float r  = v.length()*scale;
+			if (r < dist) {
+				return currNode->photonNum;
+			}
+			else {
+				return 0;
+			}
+		}
+		
+		vector3d_t v = dat->pos-p;
+		float r  = v.length()*scale;
+		if (r < dist) {
+			return currNode->photonNum;
+		}
+		
+		return recursiveFindNumInDisc(p,scale,dist,nodeNum+1) + 
+			recursiveFindNumInDisc(p,scale,dist,currNode->getRightChild());
+	}
+	
 } // namespace::kdtree
 
 __END_YAFRAY

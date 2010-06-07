@@ -63,6 +63,14 @@ class YAFRAYCORE_EXPORT mcIntegrator_t: public tiledIntegrator_t
 		virtual void cleanup();
 
 		int rDepth; //! Ray depth0
+		
+		/*! Creates SSS photon map for different objects*/
+		virtual bool createSSSMaps();
+		/*! Estimates SSS photons for a given surface point of one specified objec*/
+		virtual color_t estimateSSSMaps(renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo ) const;
+
+		
+		int rDepth; //! Ray depth
 		bool trShad; //! Use transparent shadows
 		int sDepth; //! Shadow depth for transparent shadows
 
@@ -91,6 +99,9 @@ class YAFRAYCORE_EXPORT mcIntegrator_t: public tiledIntegrator_t
 		int icMDivs; //! number of subdivision on stratified hemisphere along theta
 		float icKappa; //! controls the overall density of IC records
 		bool icDumpXML; //! true if you want to have a file with the IC tree information (it may be big)
+		
+	
+		std::map<const object3d_t*, photonMap_t*>	SSSMaps; //! Container of SSS photons for different objects
 };
 
 __END_YAFRAY
