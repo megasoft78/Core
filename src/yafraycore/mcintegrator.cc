@@ -885,7 +885,8 @@ bool mcIntegrator_t::createSSSMaps()
 
 float RD(float sig_s, float sig_a, float g, float IOR, float r)
 {
-	float rd = 1.f/(4*M_PI);
+	//float rd = 1.f/(4*M_PI);
+	float rd = 0.25*M_1_PI;//1.f/(4*M_PI);
 	float sig_s_ = (1.f-g)*sig_s;
 	float sig_t_ = sig_a + sig_s_;
 	float alpha_ = sig_s_/sig_t_;
@@ -894,12 +895,17 @@ float RD(float sig_s, float sig_a, float g, float IOR, float r)
 	float Fdr = -1.440/(IOR*IOR)+0.710/IOR+0.668+0.0636*IOR;
 	float A = (1+Fdr)/(1-Fdr);
 	float z_v = z_r*(1+4.f*A/3.f);
-	float dr = sqrtf(r*r + z_r*z_r);
-	float dv = sqrtf(r*r + z_v*z_v);
+	
+	//float dr = sqrtf(r*r + z_r*z_r);
+	//float dv = sqrtf(r*r + z_v*z_v);
+	float dr = fSqrt(r*r + z_r*z_r);//sqrtf(r*r + z_r*z_r);
+	float dv = fSqrt(r*r + z_v*z_v);//sqrtf(r*r + z_v*z_v);
 	
 	rd *= alpha_;
-	float real = z_r*(sig_tr+1/dr)*expf(-1.f*sig_tr*dr)/(dr*dr);
-	float vir = z_v*(sig_tr+1/dv)*expf(-1.f*sig_tr*dv)/(dv*dv);
+	//float real = z_r*(sig_tr+1/dr)*expf(-1.f*sig_tr*dr)/(dr*dr);
+	//float vir = z_v*(sig_tr+1/dv)*expf(-1.f*sig_tr*dv)/(dv*dv);
+	float real = z_r*(sig_tr+1/dr)*fExp(-1.f*sig_tr*dr)/(dr*dr);//expf(-1.f*sig_tr*dr)/(dr*dr);
+	float vir = z_v*(sig_tr+1/dv)*fExp(-1.f*sig_tr*dv)/(dv*dv);//expf(-1.f*sig_tr*dv)/(dv*dv);
 	
 	rd *= (real+vir);
 	
