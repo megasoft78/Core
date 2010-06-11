@@ -427,6 +427,25 @@ CFLOAT shinyDiffuseMat_t::getAlpha(const renderState_t &state, const surfacePoin
 	return 1.f;
 }
 
+bool shinyDiffuseMat_t::scatterPhoton(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wi, vector3d_t &wo, pSample_t &s) const
+{
+	color_t scol = sample(state, sp, wi, wo, s);
+	
+	if(s.pdf > 1.0e-6f)
+	{
+		color_t cnew = s.lcol * s.alpha * scol * (std::fabs(wo*sp.N)/s.pdf);
+		CFLOAT new_max = cnew.maximum();
+		CFLOAT old_max = s.lcol.maximum();
+		float prob = std::min(1.f, new_max/old_max);
+		if(s.s3 <= prob)
+		{
+			s.color = cnew*(1.f/prob);
+			return true;
+		}
+	}
+	return false;
+}
+
 material_t* shinyDiffuseMat_t::factory(paraMap_t &params, std::list<paraMap_t> &eparams, renderEnvironment_t &render)
 {
 	shinyDiffuseMat_t *mat;

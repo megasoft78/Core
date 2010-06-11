@@ -840,6 +840,7 @@ bool mcIntegrator_t::createSSSMaps()
 				//cMap.pushPhoton(np);
 				//cMap.setNumPaths(curr);
 			}
+			
 			// need to break in the middle otherwise we scatter the photon and then discard it => redundant
 			if(nBounces == maxBounces) break;
 			// scatter photon
@@ -864,11 +865,13 @@ bool mcIntegrator_t::createSSSMaps()
 			//std::cout << curr << " not translucent objects:" << std::endl;
 			
 			pcol = sample.color;
+			
 			ray.from = hit->P;
 			ray.dir = wo;
 			ray.tmin = 0.001;
 			ray.tmax = -1.0;
 			++nBounces;
+			
 		}
 		++curr;
 		if(curr % pbStep == 0) pb->update();
@@ -927,7 +930,7 @@ color_t dipole(const photon_t& inPhoton, const surfacePoint_t &sp, const vector3
 	fresnel(wo, No, IOR, Kr_o, Kt_o);
 	
 	vector3d_t v = inPhoton.pos-sp.P;
-	float r  = v.length()*10.f;
+	float r  = v.length()*40.f;
 	
 	// compute RD
 	rd.R = cosWiN*Li.R*Kt_i*Kt_o*RD(sigmaS.R, sigmaA.R, g, IOR, r)/M_PI;
@@ -937,7 +940,7 @@ color_t dipole(const photon_t& inPhoton, const surfacePoint_t &sp, const vector3
 	
 	//std::cout << "Kt_i=" << Kt_i << "    Kt_o=" << Kt_o << std::endl;
 	//std::cout << "r=" << r << "    rd=" << RD(sigmaS.R, sigmaA.R, g, IOR, r) << std::endl;
-	//std::cout << "Li=" << Li << "  rd=" << rd << std::endl << std::endl;
+	//std::cout << "Li=" << Li << "   r=" << r  << "  rd=" << rd << std::endl << std::endl;
 	
 	return rd;
 }
@@ -1011,9 +1014,9 @@ color_t mcIntegrator_t::estimateSSSMaps(renderState_t &state, const surfacePoint
 		findPhotons = photonSum;
 	}
 	sum *= 1.f/findPhotons;*/
-	sum *= 10.f*10.f*M_1_PI*0.25/photonSum;//(float)sssMap_t->nPhotons();
+	sum *= 40.f*40.f/((float)sssMap_t->nPaths());//(float)sssMap_t->nPhotons();
 	//sum *= 1.f/photons.size();
-	//std::cout << "sum = " << sum << "" << photonSum / 10.f << std::endl;
+	//std::cout << "sum = " << sum << "    " << photonSum << "  " << sssMap_t->nPaths() << std::endl;
 	
 	state.userdata = o_udat;
 	
