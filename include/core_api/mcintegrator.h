@@ -66,6 +66,7 @@ class YAFRAYCORE_EXPORT mcIntegrator_t: public tiledIntegrator_t
 		
 		/*! Creates SSS photon map for different objects*/
 		virtual bool createSSSMaps();
+		virtual bool createSSSMapsByPhotonTracing();
 		/*! Estimates SSS photons for a given surface point of one specified objec*/
 		virtual color_t estimateSSSMaps(renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo ) const;
 

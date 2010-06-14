@@ -772,6 +772,7 @@ bool mcIntegrator_t::createSSSMaps()
 		s2 = scrHalton(2, curr);
 		s3 = scrHalton(3, curr);
 		s4 = scrHalton(4, curr);
+		
 		//sL = RI_S(curr);
 		sL = float(curr) / float(nPhotons);
 		//sL = float(cMap.nPhotons()) / float(nPhotons);
@@ -839,6 +840,271 @@ bool mcIntegrator_t::createSSSMaps()
 				break;
 				//cMap.pushPhoton(np);
 				//cMap.setNumPaths(curr);
+			}
+			
+			// need to break in the middle otherwise we scatter the photon and then discard it => redundant
+			if(nBounces == maxBounces) break;
+			// scatter photon
+			int d5 = 3*nBounces + 5;
+			//int d6 = d5 + 1;
+			if(d5+2 <= 50)
+			{
+				s5 = scrHalton(d5, curr);
+				s6 = scrHalton(d5+1, curr);
+				s7 = scrHalton(d5+2, curr);
+			}
+			else
+			{
+				s5 = ourRandom();
+				s6 = ourRandom();
+				s7 = ourRandom();
+			}
+			pSample_t sample(s5, s6, s7, BSDF_ALL, pcol, transm);
+			bool scattered = material->scatterPhoton(state, *hit, wi, wo, sample);
+			if(!scattered) break; //photon was absorped.
+			
+			//std::cout << curr << " not translucent objects:" << std::endl;
+			
+			pcol = sample.color;
+			
+			ray.from = hit->P;
+			ray.dir = wo;
+			ray.tmin = 0.001;
+			ray.tmax = -1.0;
+			++nBounces;
+			
+		}
+		++curr;
+		if(curr % pbStep == 0) pb->update();
+		done = (curr >= nPhotons) ? true : false;
+		//done = (cMap.nPhotons() >= nPhotons) ? true : false;
+	}
+	pb->done();
+	pb->setTag("SSS photon map built.");
+	
+	delete lightPowerD;
+	
+	return true;
+}
+
+bool mcIntegrator_t::createSSSMapsByPhotonTracing()
+{
+	// init and compute light pdf etc.
+	ray_t ray;
+	int maxBounces = causDepth;
+	unsigned int nPhotons=nCausPhotons;
+	int numLights = lights.size();
+	float lightNumPdf, lightPdf, s1, s2, s3, s4, s5, s6, s7, sL;
+	float fNumLights = (float)numLights;
+	float *energies = new float[numLights];
+	for(int i=0;i<numLights;++i) 
+		energies[i] = lights[i]->totalEnergy().energy();
+	pdf1D_t *lightPowerD = new pdf1D_t(energies, numLights);
+	for(int i=0;i<numLights;++i) 
+		Y_INFO << "energy: "<< energies[i] <<" (dirac: "<<lights[i]->diracLight()<<")\n";
+	delete[] energies;
+	
+	// init progressbar
+	progressBar_t *pb;
+	if(intpb) pb = intpb;
+	else pb = new ConsoleProgressBar_t(80);
+	
+	int pbStep;
+	Y_INFO << integratorName << ": Building SSS photon map by photon tracing..." << yendl;
+	pb->init(128);
+	pbStep = std::max(1U, nPhotons / 128);
+	pb->setTag("Building SSS photon map by photon tracing...");
+	
+	// prepare for shooting photons
+	bool done=false;
+	unsigned int curr=0, scatteCount=0;
+	surfacePoint_t sp1, sp2;
+	surfacePoint_t *hit=&sp1, *hit2=&sp2;
+	renderState_t state;
+	unsigned char userdata[USER_DATA_SIZE+7];
+	state.userdata = (void *)( &userdata[7] - ( ((size_t)&userdata[7])&7 ) ); // pad userdata to 8 bytes
+	//std::cout<<"INFO: caustic map " << cMap.nPhotons() << std::endl;
+	
+	while(!done)
+	{
+		// sampling the light to shoot photon
+		s1 = RI_vdC(curr);
+		s2 = scrHalton(2, curr);
+		s3 = scrHalton(3, curr);
+		s4 = scrHalton(4, curr);
+		//sL = RI_S(curr);
+		sL = float(curr) / float(nPhotons);
+		//sL = float(cMap.nPhotons()) / float(nPhotons);
+		int lightNum = lightPowerD->DSample(sL, &lightNumPdf);
+		if(lightNum >= numLights){ std::cout << "lightPDF sample error! "<<sL<<"/"<<lightNum<< "  " << curr << "/" << nPhotons << "\n"; delete lightPowerD; return false; }
+		
+		// shoot photon
+		color_t pcol = lights[lightNum]->emitPhoton(s1, s2, s3, s4, ray, lightPdf);
+		ray.tmin = 0.001;
+		ray.tmax = -1.0;
+		pcol *= fNumLights*lightPdf/lightNumPdf; //remember that lightPdf is the inverse of th pdf, hence *=...
+		if(pcol.isBlack())
+		{
+			++curr;
+			done = (curr >= nPhotons) ? true : false;
+			
+			continue;
+		}
+		
+		// find instersect point
+		BSDF_t bsdfs = BSDF_NONE;
+		int nBounces=0;
+		const material_t *material = 0;
+		while( scene->intersect(ray, *hit2) )
+		{
+			if(isnan(pcol.R) || isnan(pcol.G) || isnan(pcol.B))
+			{ std::cout << "NaN WARNING (photon color)" << std::endl; break; }
+			color_t transm(1.f), vcol;
+			// check for volumetric effects
+			if(material)
+			{
+				if((bsdfs&BSDF_VOLUMETRIC) && material->volumeTransmittance(state, *hit, ray, vcol))
+				{
+					transm = vcol;
+				}
+			}
+			std::swap(hit, hit2);
+			vector3d_t wi = -ray.dir, wo;
+			material = hit->material;
+			material->initBSDF(state, *hit, bsdfs);
+			
+			// if the rey intersects with translucent objects.
+			if(bsdfs & BSDF_TRANSLUCENT)
+			{
+				color_t sigma_s, sigma_a;
+				float IOR;
+				TranslucentData_t* dat = (TranslucentData_t*)state.userdata;
+				sigma_a = dat->sig_a;
+				sigma_s = dat->sig_s;
+				IOR = dat->IOR;
+				float g = 0.f;
+				
+				float sig_a_ = sigma_a.col2bri();
+				float sig_s_ = sigma_s.col2bri();
+				float sig_t_ = sig_a_ + (1.f-g)*sig_s_;
+				float sig_t_1 = 1.f/sig_t_;
+				
+				Halton hal2(2);
+				hal2.setStart(curr);
+				
+				//std::cout << "random seed " << curr << std::endl;
+				
+				// if photon intersect with SSS material, get the refract direction and continue to trace this photon.
+				if( refract(hit->N, wi, wo, IOR) )
+				{
+					const object3d_t* refObj = hit->object;
+					bool refracOut = false;
+					bool isStored = false;
+					
+					// get the refrace try
+					float sc1 = hal2.getNext(), sc2,sc3;
+					float scatteDist = -1.f*log(1-sc1)*sig_t_1/40.f;
+					vector3d_t sdir = wo;
+					ray.from = hit->P;
+					ray.dir = wo;
+					ray.tmin = 0.001;
+					ray.tmax = scatteDist;
+					
+					int scatNum = 0;
+					
+					while (!(refracOut = scene->intersect(ray, *hit2)))
+					{
+						// compute scatter point
+						point3d_t scattePt = ray.from + scatteDist*ray.dir;
+						pcol *= fExp(-1*sig_t_*scatteDist); // power attuation
+						// roulette whether scatter or absorb
+						float s = hal2.getNext();
+						if (  s < sig_a_*sig_t_1 ) {
+							// absorbed, then break
+							std::cout << "absorbed" << std::endl;
+							break;
+						}
+						else {
+							// scattered
+							// store photon
+							//std::cout << "scattered " << s << " " <<sig_a_*sig_t_1 << std::endl;
+							if (!isStored) {
+								// store photon here
+								//photon_t np(ray.dir, scattePt, pcol);
+								photon_t np(wi, hit->P, pcol);
+								np.hitNormal = hit->N;
+								if(refObj)
+								{
+									//std::cout << curr <<" bounces:" << nBounces << std::endl;
+									std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.find(refObj);
+									if(it!=SSSMaps.end()){
+										// exist SSSMap for this object
+										SSSMaps[refObj]->pushPhoton(np);
+										SSSMaps[refObj]->setNumPaths(curr);
+									}
+									else {
+										// need create a new SSSMap for this object
+										//std::cout << "new translucent is " << bsdfs << "   " << hitObj << std::endl;
+										photonMap_t* sssMap_t = new photonMap_t();
+										sssMap_t->pushPhoton(np);
+										sssMap_t->setNumPaths(curr);
+										SSSMaps[refObj] = sssMap_t;
+									}
+								} 
+								isStored = true;
+							}
+							
+							// get the scatter direction
+							sc2 = scrHalton(2, scatteCount);
+							sc3 = scrHalton(3, scatteCount);
+							sdir = SampleSphere(sc2,sc3);
+							
+							sc1 = hal2.getNext();
+							scatteDist = -1.f*log(1-sc1)*sig_t_1/40.f;
+							ray.from = scattePt;
+							ray.dir = sdir;
+							ray.tmin = 0.001;
+							ray.tmax = scatteDist;
+							
+							scatteCount++;
+							scatNum++;
+							if (scatNum >= nBounces) {
+								break;
+							}
+							
+						}
+					}
+					
+					if (refracOut) {
+						// refract out
+						// compute new direction and
+						std::swap(hit, hit2);
+						wi = -ray.dir;
+						material = hit->material;
+						if( refract(hit->N, wi, wo, IOR) )
+						{
+							vector3d_t lastTransmit = hit->P - ray.from;
+							scatteDist = lastTransmit.length();
+							pcol *= fExp(-1*sig_t_*scatteDist);
+							ray.from = hit->P;
+							ray.dir = wo;
+							ray.tmin = 0.001;
+							ray.tmax = -1.0;
+							++nBounces;
+							if (!isStored) {
+							std::cout << "photon refacted out" << std::endl;
+							}
+							continue;
+						}
+						else
+							break;
+					}
+					else {
+						break;
+					}
+					break;
+				}
+				break;
 			}
 			
 			// need to break in the middle otherwise we scatter the photon and then discard it => redundant
