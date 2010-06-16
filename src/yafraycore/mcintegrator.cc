@@ -781,6 +781,7 @@ bool mcIntegrator_t::createSSSMaps()
 		
 		// shoot photon
 		color_t pcol = lights[lightNum]->emitPhoton(s1, s2, s3, s4, ray, lightPdf);
+		color_t pcol_t;
 		ray.tmin = 0.001;
 		ray.tmax = -1.0;
 		pcol *= fNumLights*lightPdf/lightNumPdf; //remember that lightPdf is the inverse of th pdf, hence *=...
@@ -796,6 +797,9 @@ bool mcIntegrator_t::createSSSMaps()
 		BSDF_t bsdfs = BSDF_NONE;
 		int nBounces=0;
 		const material_t *material = 0;
+		
+		bool isRefrectedOut = false;
+		
 		while( scene->intersect(ray, *hit2) )
 		{
 			if(isnan(pcol.R) || isnan(pcol.G) || isnan(pcol.B))
@@ -887,6 +891,8 @@ bool mcIntegrator_t::createSSSMaps()
 	return true;
 }
 
+float sssScale = 50.f;
+
 bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 {
 	// init and compute light pdf etc.
@@ -917,7 +923,7 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 	
 	// prepare for shooting photons
 	bool done=false;
-	unsigned int curr=0, scatteCount=0;
+	unsigned int curr=0, scatteCount=0, inCount=0, absorbCount=0;
 	surfacePoint_t sp1, sp2;
 	surfacePoint_t *hit=&sp1, *hit2=&sp2;
 	renderState_t state;
@@ -976,6 +982,10 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 			// if the rey intersects with translucent objects.
 			if(bsdfs & BSDF_TRANSLUCENT)
 			{
+				if (isRefrectedOut) {
+					std::cout << "In  curr=" << curr << "  wi = " << wi << "  N=" << hit->N << " pcol=" << pcol << std::endl;
+					isRefrectedOut = false;
+				}
 				color_t sigma_s, sigma_a;
 				float IOR;
 				TranslucentData_t* dat = (TranslucentData_t*)state.userdata;
@@ -989,21 +999,23 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 				float sig_t_ = sig_a_ + (1.f-g)*sig_s_;
 				float sig_t_1 = 1.f/sig_t_;
 				
-				Halton hal2(2);
-				hal2.setStart(curr);
+				//Halton hal2(7);
+				//hal2.setStart(curr);
 				
 				//std::cout << "random seed " << curr << std::endl;
 				
 				// if photon intersect with SSS material, get the refract direction and continue to trace this photon.
 				if( refract(hit->N, wi, wo, IOR) )
 				{
+					inCount++;
 					const object3d_t* refObj = hit->object;
 					bool refracOut = false;
 					bool isStored = false;
 					
 					// get the refrace try
-					float sc1 = hal2.getNext(), sc2,sc3;
-					float scatteDist = -1.f*log(1-sc1)*sig_t_1/40.f;
+					float sc1 = ourRandom();//hal2.getNext(); 
+					float sc2,sc3;
+					float scatteDist = -1.f*log(1-sc1)*sig_t_1/sssScale;
 					vector3d_t sdir = wo;
 					ray.from = hit->P;
 					ray.dir = wo;
@@ -1016,22 +1028,30 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 					{
 						// compute scatter point
 						point3d_t scattePt = ray.from + scatteDist*ray.dir;
-						pcol *= fExp(-1*sig_t_*scatteDist); // power attuation
-						// roulette whether scatter or absorb
-						float s = hal2.getNext();
-						if (  s < sig_a_*sig_t_1 ) {
-							// absorbed, then break
-							std::cout << "absorbed" << std::endl;
+						pcol_t = pcol;
+						pcol *= fExp(-1*sig_t_*scatteDist*sssScale); // power attuation
+						
+						if (pcol.energy() < 1e-6) {
 							break;
 						}
-						else {
+						
+						// roulette whether scatter or absorb
+						float s = ourRandom();//hal2.getNext();
+						if (  s < sig_a_*sig_t_1 ) {
+							// absorbed, then break
+							//std::cout << "absorbed" << std::endl;
+							absorbCount++;
+							break;
+						}
+						else 
+						{
 							// scattered
 							// store photon
 							//std::cout << "scattered " << s << " " <<sig_a_*sig_t_1 << std::endl;
 							if (!isStored) {
 								// store photon here
 								//photon_t np(ray.dir, scattePt, pcol);
-								photon_t np(wi, hit->P, pcol);
+								photon_t np(wi, hit->P, pcol_t);
 								np.hitNormal = hit->N;
 								if(refObj)
 								{
@@ -1052,6 +1072,8 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 									}
 								} 
 								isStored = true;
+								
+								break;
 							}
 							
 							// get the scatter direction
@@ -1059,8 +1081,8 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 							sc3 = scrHalton(3, scatteCount);
 							sdir = SampleSphere(sc2,sc3);
 							
-							sc1 = hal2.getNext();
-							scatteDist = -1.f*log(1-sc1)*sig_t_1/40.f;
+							sc1 = ourRandom();//hal2.getNext();
+							scatteDist = -1.f*log(1-sc1)*sig_t_1/sssScale;
 							ray.from = scattePt;
 							ray.dir = sdir;
 							ray.tmin = 0.001;
@@ -1068,9 +1090,9 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 							
 							scatteCount++;
 							scatNum++;
-							if (scatNum >= nBounces) {
-								break;
-							}
+							//if (scatNum >= nBounces) {
+							//	break;
+							//}
 							
 						}
 					}
@@ -1081,30 +1103,38 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 						std::swap(hit, hit2);
 						wi = -ray.dir;
 						material = hit->material;
-						if( refract(hit->N, wi, wo, IOR) )
+						if( refract(-1*hit->N, wi, wo, 1.0f/IOR) )
 						{
 							vector3d_t lastTransmit = hit->P - ray.from;
 							scatteDist = lastTransmit.length();
-							pcol *= fExp(-1*sig_t_*scatteDist);
+							
+							pcol *= fExp(-1*sig_t_*scatteDist*sssScale);
 							ray.from = hit->P;
 							ray.dir = wo;
 							ray.tmin = 0.001;
 							ray.tmax = -1.0;
 							++nBounces;
-							if (!isStored) {
-							std::cout << "photon refacted out" << std::endl;
-							}
+							//if (!isStored) {
+							//std::cout << "photon refacted out" << "  " << pcol << std::endl;
+							//std::cout << "Out curr=" << curr << "  wi = " << wi << "  N=" << hit->N*-1 << " wo=" << wo << "  pcol=" << pcol << std::endl;
+							//}
+							isRefrectedOut = true;
 							continue;
 						}
 						else
+						{
 							break;
+						}
 					}
 					else {
+						// not refracted out, just because absorbed or power is too small
 						break;
 					}
+				}
+				else{
+					// not refracted in to object
 					break;
 				}
-				break;
 			}
 			
 			// need to break in the middle otherwise we scatter the photon and then discard it => redundant
@@ -1146,6 +1176,9 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 	}
 	pb->done();
 	pb->setTag("SSS photon map built.");
+	
+	std::cout << "In photons: " << inCount << std::endl;
+	std::cout << "absorbed photons: " << absorbCount << std::endl;
 	
 	delete lightPowerD;
 	
@@ -1196,7 +1229,7 @@ color_t dipole(const photon_t& inPhoton, const surfacePoint_t &sp, const vector3
 	fresnel(wo, No, IOR, Kr_o, Kt_o);
 	
 	vector3d_t v = inPhoton.pos-sp.P;
-	float r  = v.length()*40.f;
+	float r  = v.length()*sssScale;
 	
 	// compute RD
 	rd.R = cosWiN*Li.R*Kt_i*Kt_o*RD(sigmaS.R, sigmaA.R, g, IOR, r)/M_PI;
@@ -1217,21 +1250,6 @@ color_t mcIntegrator_t::estimateSSSMaps(renderState_t &state, const surfacePoint
 	color_t sum(0.f);
 	vector3d_t wi(0.0f);
 	const object3d_t* hitObj = sp.object;
-	
-	///////
-	//float area = 0;
-	/*const primitive_t** prims = new const primitive_t*[hitObj->numPrimitives()];
-	hitObj->getPrimitives(prims);
-	
-	for (int i=0; i<hitObj->numPrimitives(); i++) {
-		const primitive_t* prim = prims[i];
-		bound_t box = prim->getBound();
-		area += (box.longX()*box.longX() + box.longY()*box.longY() + box.longZ()*box.longZ())*0.25f*20*20;
-	}*/
-	
-	//std::cout << "The area of " << hitObj->numPrimitives() << " objects is " << area << std::endl;
-	//delete []prims;
-	///////
 	
 	std::map<const object3d_t*, photonMap_t*>::const_iterator it = SSSMaps.find(hitObj);
 	if ( it == SSSMaps.end() ) {
@@ -1263,26 +1281,14 @@ color_t mcIntegrator_t::estimateSSSMaps(renderState_t &state, const surfacePoint
 	sigma_s = dat->sig_s;
 	IOR = dat->IOR;
 	
-	//std::cout << "sigma_a = " << sigma_a.R << "  sigma_s = " << sigma_s.R << "  IOR = " << IOR << std::endl;
-	
 	// sum all photon in translucent object
 	const std::vector<const photon_t*>& photons = sssMap_t->getAllPhotons(sp.P);
-	
-	//std::cout << "Sample " << state.pixelNumber << "    Get photons number is " << photons.size() << std::endl;
-	//float findPhotons = sssMap_t->numberOfPhotonInDisc(sp.P,20.0f,1.f);
-	//std::cout << "Recurisive find " << findPhotons << std::endl;
 	
 	for (uint i=0; i<photons.size(); i++) {
 		sum += dipole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
 	}
-	/*
-	if (findPhotons == 0) {
-		findPhotons = photonSum;
-	}
-	sum *= 1.f/findPhotons;*/
-	sum *= 40.f*40.f/((float)sssMap_t->nPaths());//(float)sssMap_t->nPhotons();
-	//sum *= 1.f/photons.size();
-	//std::cout << "sum = " << sum << "    " << photonSum << "  " << sssMap_t->nPaths() << std::endl;
+	
+	sum *= sssScale*sssScale/((float)sssMap_t->nPaths());
 	
 	state.userdata = o_udat;
 	
