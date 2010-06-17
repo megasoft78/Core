@@ -782,7 +782,7 @@ bool mcIntegrator_t::createSSSMaps()
 		// shoot photon
 		color_t pcol = lights[lightNum]->emitPhoton(s1, s2, s3, s4, ray, lightPdf);
 		color_t pcol_t;
-		ray.tmin = 0.001;
+		ray.tmin = MIN_RAYDIST;
 		ray.tmax = -1.0;
 		pcol *= fNumLights*lightPdf/lightNumPdf; //remember that lightPdf is the inverse of th pdf, hence *=...
 		if(pcol.isBlack())
@@ -891,7 +891,7 @@ bool mcIntegrator_t::createSSSMaps()
 	return true;
 }
 
-float sssScale = 50.f;
+float sssScale = 10.f;
 
 bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 {
@@ -982,10 +982,11 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 			// if the rey intersects with translucent objects.
 			if(bsdfs & BSDF_TRANSLUCENT)
 			{
+				/*std::cout << "enter ray = " << curr << "  wi = " << wi  << std::endl;
 				if (isRefrectedOut) {
-					std::cout << "In  curr=" << curr << "  wi = " << wi << "  N=" << hit->N << " pcol=" << pcol << std::endl;
+					std::cout << "In  curr=" << curr << "  wi = " << wi << "  N=" << hit->N << " from=" << ray.from << "   pcol=" << pcol << std::endl;
 					isRefrectedOut = false;
-				}
+				}*/
 				color_t sigma_s, sigma_a;
 				float IOR;
 				TranslucentData_t* dat = (TranslucentData_t*)state.userdata;
@@ -1015,17 +1016,22 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 					// get the refrace try
 					float sc1 = ourRandom();//hal2.getNext(); 
 					float sc2,sc3;
-					float scatteDist = -1.f*log(1-sc1)*sig_t_1/sssScale;
+					//float scatteDist = -1.f*log(1-sc1)*sig_t_1/sssScale;
+					float scatteDist = 1.f/(sig_t_1*sssScale);
 					vector3d_t sdir = wo;
 					ray.from = hit->P;
 					ray.dir = wo;
-					ray.tmin = 0.001;
+					ray.tmin = MIN_RAYDIST/sssScale;
 					ray.tmax = scatteDist;
+					
+					//std::cout << "first refracted = " << curr << "  wi = " << wi << "  N=" << hit->N << " wo=" << wo << "   pcol=" << pcol << std::endl;
+					
 					
 					int scatNum = 0;
 					
 					while (!(refracOut = scene->intersect(ray, *hit2)))
 					{
+						//std::cout << "ray = " << curr << "  ray.dir = " << ray.dir << "  from=" << ray.from << "  scatteDist=" << ray.tmax << std::endl;
 						// compute scatter point
 						point3d_t scattePt = ray.from + scatteDist*ray.dir;
 						pcol_t = pcol;
@@ -1051,8 +1057,15 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 							if (!isStored) {
 								// store photon here
 								//photon_t np(ray.dir, scattePt, pcol);
+								
+								float cosWo = ray.dir*(-1.f*hit->N);
 								photon_t np(wi, hit->P, pcol_t);
 								np.hitNormal = hit->N;
+								np.sourcePos = scattePt;
+								np.sourceDepth = cosWo*scatteDist;
+								
+								//std::cout << "cosWo = " << cosWo << " scatterDist = " << scatteDist << "  depth = " << np.sourceDepth << std::endl;
+								
 								if(refObj)
 								{
 									//std::cout << curr <<" bounces:" << nBounces << std::endl;
@@ -1073,7 +1086,7 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 								} 
 								isStored = true;
 								
-								break;
+								//break;
 							}
 							
 							// get the scatter direction
@@ -1085,7 +1098,7 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 							scatteDist = -1.f*log(1-sc1)*sig_t_1/sssScale;
 							ray.from = scattePt;
 							ray.dir = sdir;
-							ray.tmin = 0.001;
+							ray.tmin = MIN_RAYDIST/sssScale;
 							ray.tmax = scatteDist;
 							
 							scatteCount++;
@@ -1098,25 +1111,34 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 					}
 					
 					if (refracOut) {
+						
+						//std::cout << "ray = " << curr << "  ray.dir = " << ray.dir << "  from=" << ray.from << "  scatteDist=" << ray.tmax << std::endl;
+						
 						// refract out
 						// compute new direction and
 						std::swap(hit, hit2);
 						wi = -ray.dir;
 						material = hit->material;
+						
+						if (-1*hit->N*wi<=0) {
+							break;
+						}
+						
 						if( refract(-1*hit->N, wi, wo, 1.0f/IOR) )
 						{
+							//std::cout << "Out curr=" << curr << "  wi = " << wi << "  N=" << hit->N*-1 << " wo=" << wo << "  from=" << ray.from << "   pcol=" << pcol << std::endl;
+							
 							vector3d_t lastTransmit = hit->P - ray.from;
 							scatteDist = lastTransmit.length();
 							
 							pcol *= fExp(-1*sig_t_*scatteDist*sssScale);
 							ray.from = hit->P;
 							ray.dir = wo;
-							ray.tmin = 0.001;
+							ray.tmin = MIN_RAYDIST/sssScale;
 							ray.tmax = -1.0;
 							++nBounces;
 							//if (!isStored) {
 							//std::cout << "photon refacted out" << "  " << pcol << std::endl;
-							//std::cout << "Out curr=" << curr << "  wi = " << wi << "  N=" << hit->N*-1 << " wo=" << wo << "  pcol=" << pcol << std::endl;
 							//}
 							isRefrectedOut = true;
 							continue;
@@ -1244,6 +1266,80 @@ color_t dipole(const photon_t& inPhoton, const surfacePoint_t &sp, const vector3
 	return rd;
 }
 
+color_t dipole2(const photon_t& inPhoton, const surfacePoint_t &sp, const vector3d_t &wo, float IOR, float g, const color_t &sigmaS, const color_t &sigmaA )
+{
+	color_t rd(0.25*M_1_PI);
+	const color_t Li = inPhoton.c;
+	const vector3d_t wi = inPhoton.direction();
+	const vector3d_t No = sp.N;
+	const vector3d_t Ni = inPhoton.hitNormal;
+	
+	float cosWiN = wi*Ni;
+	
+	float Kr_i, Kt_i, Kr_o, Kt_o;
+	fresnel(wi, Ni, IOR, Kr_i, Kt_i);
+	fresnel(wo, No, IOR, Kr_o, Kt_o);
+	
+	vector3d_t v = inPhoton.pos-sp.P;
+	float r  = v.length()*sssScale;
+	
+	
+	//float rd = 0.25*M_1_PI;//1.f/(4*M_PI);
+	color_t sig_s_ = (1.f-g)*sigmaS;
+	color_t sig_t_ = sigmaA + sig_s_;
+	color_t alpha_ = sig_s_/sig_t_;
+	color_t sig_tr = colorSqrt(3*sigmaA*sig_t_);
+	
+	//std::cout << "sig_t=" << sig_t_ << "  alpha=" << alpha_ << "  sig_tr=" << sig_tr << std::endl;
+	
+	float z_r = inPhoton.sourceDepth*sssScale;
+	float Fdr = -1.440/(IOR*IOR)+0.710/IOR+0.668+0.0636*IOR;
+	float A = (1+Fdr)/(1-Fdr);
+	float z_v = z_r*(1+4.f*A/3.f);
+	
+	point3d_t vSourcePos = inPhoton.sourcePos + inPhoton.hitNormal*(inPhoton.sourceDepth*(2+4.f*A/3.f));
+	vector3d_t vecRS = sp.P - inPhoton.sourcePos;
+	vector3d_t vecVS = sp.P - vSourcePos;
+	
+	float dr = vecRS.length()*sssScale;
+	float dv = vecVS.length()*sssScale;
+	
+	//std::cout << "dr=" << dr << "  dv=" << dv << std::endl;
+	
+	//float dr = sqrtf(r*r + z_r*z_r);
+	//float dv = sqrtf(r*r + z_v*z_v);
+	//float dr = fSqrt(r*r + z_r*z_r);//sqrtf(r*r + z_r*z_r);
+	//float dv = fSqrt(r*r + z_v*z_v);//sqrtf(r*r + z_v*z_v);
+	
+	rd *= alpha_;
+	//float real = z_r*(sig_tr+1/dr)*expf(-1.f*sig_tr*dr)/(dr*dr);
+	//float vir = z_v*(sig_tr+1/dv)*expf(-1.f*sig_tr*dv)/(dv*dv);
+	color_t real = z_r*(sig_tr+1/dr)*colorExp(-1.f*sig_tr*dr)/(dr*dr);//expf(-1.f*sig_tr*dr)/(dr*dr);
+	color_t vir = z_v*(sig_tr+1/dv)*colorExp(-1.f*sig_tr*dv)/(dv*dv);//expf(-1.f*sig_tr*dv)/(dv*dv);
+	
+	rd *= (real+vir);
+	
+	if (rd.energy() > 1.0) 
+	{
+		std::cout << "rd=" << rd << " out pos = " << sp.P << "   photon pos=" << inPhoton.sourcePos << " dr=" << dr << "  dv=" << dv << std::endl;
+		std::cout << "old RD = " << RD(sigmaS.R, sigmaA.R, g, IOR, r) << std::endl;
+	}
+	
+	rd = rd*Li*cosWiN*Kt_i*Kt_o*M_1_PI;
+	
+	// compute RD
+	//rd.R = cosWiN*Li.R*Kt_i*Kt_o*RD(sigmaS.R, sigmaA.R, g, IOR, r)/M_PI;
+	//rd.G = cosWiN*Li.G*Kt_i*Kt_o*RD(sigmaS.G, sigmaA.G, g, IOR, r)/M_PI;
+	//rd.B = cosWiN*Li.B*Kt_i*Kt_o*RD(sigmaS.B, sigmaA.B, g, IOR, r)/M_PI;
+	
+	
+	//std::cout << "Kt_i=" << Kt_i << "    Kt_o=" << Kt_o << std::endl;
+	//std::cout << "r=" << r << "    rd=" << RD(sigmaS.R, sigmaA.R, g, IOR, r) << std::endl;
+	//std::cout << "Li=" << Li << "   r=" << r  << "  rd=" << rd << std::endl << std::endl;
+	
+	return rd;
+}
+
 
 color_t mcIntegrator_t::estimateSSSMaps(renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo ) const
 {
@@ -1285,10 +1381,15 @@ color_t mcIntegrator_t::estimateSSSMaps(renderState_t &state, const surfacePoint
 	const std::vector<const photon_t*>& photons = sssMap_t->getAllPhotons(sp.P);
 	
 	for (uint i=0; i<photons.size(); i++) {
-		sum += dipole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
+		//sum += dipole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
+		sum += dipole2(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
 	}
 	
 	sum *= sssScale*sssScale/((float)sssMap_t->nPaths());
+	
+	/*if (sum.energy() > 1.f ) {
+		std::cout << sp.P << std::endl;	
+	}*/
 	
 	state.userdata = o_udat;
 	

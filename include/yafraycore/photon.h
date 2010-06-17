@@ -106,6 +106,10 @@ class photon_t
 		normal_t dir;
 #endif
 		vector3d_t hitNormal;
+	
+		// for photon inner sss object
+		point3d_t sourcePos;
+		float	  sourceDepth;
 };
 
 struct radData_t

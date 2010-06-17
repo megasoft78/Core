@@ -36,9 +36,15 @@ class YAFRAYCORE_EXPORT color_t
 	friend color_t operator * (const color_t &a, const color_t &b);
 	friend color_t operator * (const CFLOAT f, const color_t &b);
 	friend color_t operator * (const color_t &b, const CFLOAT f);
+	friend color_t operator / (const color_t &a, const color_t &b);
 	friend color_t operator / (const color_t &b, const CFLOAT f);
+	friend color_t operator / (const CFLOAT f, const color_t &b);
 	friend color_t operator + (const color_t &a, const color_t &b);
+	friend color_t operator + (const color_t &b, const CFLOAT f);
+	friend color_t operator + (const CFLOAT f, const color_t &b);
 	friend color_t operator - (const color_t &a, const color_t &b);
+	friend color_t colorSqrt (const color_t &b);
+	friend color_t colorExp (const color_t &b);
 	friend CFLOAT maxAbsDiff(const color_t &a, const color_t &b);
 	friend YAFRAYCORE_EXPORT void operator >> (unsigned char *data, color_t &c);
 	friend YAFRAYCORE_EXPORT void operator << (unsigned char *data, const color_t &c);
@@ -236,9 +242,19 @@ inline color_t operator * (const color_t &b,const CFLOAT f)
 	return color_t(f*b.R,f*b.G,f*b.B);
 }
 
+inline color_t operator / (const color_t &a, const color_t &b)
+{
+	return color_t(a.R/b.R,a.G/b.G,a.B/b.B);
+}
+
 inline color_t operator / (const color_t &b,CFLOAT f)
 {
 	return color_t(b.R/f,b.G/f,b.B/f);
+}
+
+inline color_t operator / ( const CFLOAT f, const color_t &b)
+{
+	return color_t(f/b.R,f/b.G,f/b.B);
 }
 
 inline color_t operator + (const color_t &a,const color_t &b)
@@ -246,9 +262,30 @@ inline color_t operator + (const color_t &a,const color_t &b)
 	return color_t(a.R+b.R,a.G+b.G,a.B+b.B);
 }
 
+inline color_t operator + (const color_t &b, const CFLOAT f)
+{
+	return color_t(f+b.R,f+b.G,f+b.B);
+}
+
+inline color_t operator + ( const CFLOAT f, const color_t &b)
+{
+	return color_t(b.R+f,b.G+f,b.B+f);
+}
+
 inline color_t operator - (const color_t &a, const color_t &b)
 {
 	return color_t(a.R-b.R, a.G-b.G, a.B-b.B);
+}
+
+
+inline color_t colorSqrt (const color_t &b)
+{
+	return color_t(sqrtf(b.R),sqrtf(b.G),sqrtf(b.B));
+}
+
+inline color_t colorExp (const color_t &b)
+{
+	return color_t(fExp(b.R),fExp(b.G),fExp(b.B));
 }
 
 /*

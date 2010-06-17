@@ -339,6 +339,13 @@ void photonKdTree<T>::recursiveLookup(const point3d_t &p, const LookupProc &proc
 		//normal
 		dat->hitNormal = nodes[nodeNum+1].data->hitNormal*weight + nodes[currNode->getRightChild()].data->hitNormal*(1-weight);
 		dat->hitNormal.normalize();
+		
+		// source pos
+		dat->sourcePos = nodes[nodeNum+1].data->sourcePos*weight + nodes[currNode->getRightChild()].data->sourcePos*(1-weight);
+		
+		// depth
+		dat->sourceDepth =  nodes[nodeNum+1].data->sourceDepth*weight + nodes[currNode->getRightChild()].data->sourceDepth*(1-weight);
+		
 		currNode->data = dat;
 	}
 	
