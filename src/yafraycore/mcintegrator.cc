@@ -1013,6 +1013,7 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 					bool refracOut = false;
 					bool isStored = false;
 					
+					
 					// get the refrace try
 					float sc1 = ourRandom();//hal2.getNext(); 
 					float sc2,sc3;
@@ -1254,9 +1255,9 @@ color_t dipole(const photon_t& inPhoton, const surfacePoint_t &sp, const vector3
 	float r  = v.length()*sssScale;
 	
 	// compute RD
-	rd.R = cosWiN*Li.R*Kt_i*Kt_o*RD(sigmaS.R, sigmaA.R, g, IOR, r)/M_PI;
-	rd.G = cosWiN*Li.G*Kt_i*Kt_o*RD(sigmaS.G, sigmaA.G, g, IOR, r)/M_PI;
-	rd.B = cosWiN*Li.B*Kt_i*Kt_o*RD(sigmaS.B, sigmaA.B, g, IOR, r)/M_PI;
+	rd.R = M_1_PI*cosWiN*Li.R*Kt_i*Kt_o*RD(sigmaS.R, sigmaA.R, g, IOR, r);
+	rd.G = M_1_PI*cosWiN*Li.G*Kt_i*Kt_o*RD(sigmaS.G, sigmaA.G, g, IOR, r);
+	rd.B = M_1_PI*cosWiN*Li.B*Kt_i*Kt_o*RD(sigmaS.B, sigmaA.B, g, IOR, r);
 	
 	
 	//std::cout << "Kt_i=" << Kt_i << "    Kt_o=" << Kt_o << std::endl;
@@ -1340,6 +1341,217 @@ color_t dipole2(const photon_t& inPhoton, const surfacePoint_t &sp, const vector
 	return rd;
 }
 
+color_t dipole3(const photon_t& inPhoton, const surfacePoint_t &sp, const vector3d_t &wo, float IOR, float g, const color_t &sigmaS, const color_t &sigmaA )
+{
+	color_t rd(0.25*M_1_PI);
+	const color_t Li = inPhoton.c;
+	const vector3d_t wi = inPhoton.direction();
+	const vector3d_t No = sp.N;
+	const vector3d_t Ni = inPhoton.hitNormal;
+	
+	float cosWiN = wi*Ni;
+	
+	float Kr_i, Kt_i, Kr_o, Kt_o;
+	fresnel(wi, Ni, IOR, Kr_i, Kt_i);
+	fresnel(wo, No, IOR, Kr_o, Kt_o);
+	
+	vector3d_t v = inPhoton.pos-sp.P;
+	float r  = v.length()*sssScale;
+	
+	
+	//float rd = 0.25*M_1_PI;//1.f/(4*M_PI);
+	color_t sig_s_ = (1.f-g)*sigmaS;
+	color_t sig_t_ = sigmaA + sig_s_;
+	color_t alpha_ = sig_s_/sig_t_;
+	color_t sig_tr = colorSqrt(3*sigmaA*sig_t_);
+	
+	//std::cout << "sig_t=" << sig_t_ << "  alpha=" << alpha_ << "  sig_tr=" << sig_tr << std::endl;
+	
+	color_t z_r = 1.f/sig_t_/sssScale;
+	float Fdr = -1.440/(IOR*IOR)+0.710/IOR+0.668+0.0636*IOR;
+	float A = (1+Fdr)/(1-Fdr);
+	color_t z_v = z_r*(1+1.333333333f*A);
+	
+	point3d_t rSourcePosR = inPhoton.pos + inPhoton.hitNormal*-1*z_r.R;
+	point3d_t rSourcePosG = inPhoton.pos + inPhoton.hitNormal*-1*z_r.G;
+	point3d_t rSourcePosB = inPhoton.pos + inPhoton.hitNormal*-1*z_r.B;
+	
+	
+	point3d_t vSourcePosR = inPhoton.pos + inPhoton.hitNormal*z_v.R;
+	point3d_t vSourcePosG = inPhoton.pos + inPhoton.hitNormal*z_v.G;
+	point3d_t vSourcePosB = inPhoton.pos + inPhoton.hitNormal*z_v.B;
+	
+	
+	
+	color_t dr, dv;
+	dr.R = (sp.P-rSourcePosR).length()*sssScale;
+	dr.G = (sp.P-rSourcePosG).length()*sssScale;
+	dr.B = (sp.P-rSourcePosB).length()*sssScale;
+	
+	dv.R = (sp.P-vSourcePosR).length()*sssScale;
+	dv.G = (sp.P-vSourcePosG).length()*sssScale;
+	dv.B = (sp.P-vSourcePosB).length()*sssScale;
+	 
+	
+	//std::cout << "dr=" << dr << "  dv=" << dv << std::endl;
+	
+	//float dr = sqrtf(r*r + z_r*z_r);
+	//float dv = sqrtf(r*r + z_v*z_v);
+	//float dr = fSqrt(r*r + z_r*z_r);//sqrtf(r*r + z_r*z_r);
+	//float dv = fSqrt(r*r + z_v*z_v);//sqrtf(r*r + z_v*z_v);
+	
+	z_r = z_r*sssScale;
+	z_v = z_v*sssScale;
+	
+	//color_t dr = colorSqrt(r*r + z_r*z_r);
+	//color_t dv = colorSqrt(r*r + z_v*z_v);
+	
+	rd *= alpha_;
+	//float real = z_r*(sig_tr+1/dr)*expf(-1.f*sig_tr*dr)/(dr*dr);
+	//float vir = z_v*(sig_tr+1/dv)*expf(-1.f*sig_tr*dv)/(dv*dv);
+	color_t real = z_r*(sig_tr+1/dr)*colorExp(-1.f*sig_tr*dr)/(dr*dr);//expf(-1.f*sig_tr*dr)/(dr*dr);
+	color_t vir = z_v*(sig_tr+1/dv)*colorExp(-1.f*sig_tr*dv)/(dv*dv);//expf(-1.f*sig_tr*dv)/(dv*dv);
+	
+	rd *= (real+vir);
+	
+	if (rd.energy() > 1.0) 
+	{
+		std::cout << "rd=" << rd << " out pos = " << sp.P << "   photon pos=" << inPhoton.sourcePos << " dr=" << dr << "  dv=" << dv << std::endl;
+		std::cout << "old RD = " << RD(sigmaS.R, sigmaA.R, g, IOR, r) << std::endl;
+	}
+	
+	rd = rd*Li*cosWiN*Kt_i*Kt_o*M_1_PI;
+	
+	// compute RD
+	//rd.R = cosWiN*Li.R*Kt_i*Kt_o*RD(sigmaS.R, sigmaA.R, g, IOR, r)/M_PI;
+	//rd.G = cosWiN*Li.G*Kt_i*Kt_o*RD(sigmaS.G, sigmaA.G, g, IOR, r)/M_PI;
+	//rd.B = cosWiN*Li.B*Kt_i*Kt_o*RD(sigmaS.B, sigmaA.B, g, IOR, r)/M_PI;
+	
+	
+	//std::cout << "Kt_i=" << Kt_i << "    Kt_o=" << Kt_o << std::endl;
+	//std::cout << "r=" << r << "    rd=" << RD(sigmaS.R, sigmaA.R, g, IOR, r) << std::endl;
+	//std::cout << "Li=" << Li << "   r=" << r  << "  rd=" << rd << std::endl << std::endl;
+	
+	return rd;
+}
+
+// dipole and quadpole
+
+color_t dipoleAdnQuadpole(const photon_t& inPhoton, const surfacePoint_t &sp, const vector3d_t &wo, float IOR, float g, const color_t &sigmaS, const color_t &sigmaA )
+{
+	color_t rd(0.25*M_1_PI);
+	color_t qd(1.f);
+	
+	const color_t Li = inPhoton.c;
+	const vector3d_t wi = inPhoton.direction();
+	const vector3d_t No = sp.N;
+	const vector3d_t Ni = inPhoton.hitNormal;
+	
+	
+	float gamma = acosf(dot(No, Ni));
+	
+	float cosWiN = wi*Ni;
+	
+	float Kr_i, Kt_i, Kr_o, Kt_o;
+	fresnel(wi, Ni, IOR, Kr_i, Kt_i);
+	fresnel(wo, No, IOR, Kr_o, Kt_o);
+	
+	vector3d_t v = inPhoton.pos-sp.P;
+	float r  = v.length()*sssScale;
+	
+	color_t sig_s_ = (1.f-g)*sigmaS;
+	color_t sig_t_ = sigmaA + sig_s_;
+	color_t alpha_ = sig_s_/sig_t_;
+	color_t sig_tr = colorSqrt(3*sigmaA*sig_t_);
+	
+	color_t z_r = 1.f/sig_t_/sssScale;
+	float Fdr = -1.440/(IOR*IOR)+0.710/IOR+0.668+0.0636*IOR;
+	float A = (1+Fdr)/(1-Fdr);
+	color_t z_v = z_r*(1+1.333333333f*A);
+	
+	point3d_t rSourcePosR = inPhoton.pos + inPhoton.hitNormal*-1*z_r.R;
+	point3d_t rSourcePosG = inPhoton.pos + inPhoton.hitNormal*-1*z_r.G;
+	point3d_t rSourcePosB = inPhoton.pos + inPhoton.hitNormal*-1*z_r.B;
+	point3d_t vSourcePosR = inPhoton.pos + inPhoton.hitNormal*z_v.R;
+	point3d_t vSourcePosG = inPhoton.pos + inPhoton.hitNormal*z_v.G;
+	point3d_t vSourcePosB = inPhoton.pos + inPhoton.hitNormal*z_v.B;
+	
+	
+	point3d_t vmSourcePosR = rSourcePosR + 2*(((sp.P-rSourcePosR)*No+0.66666667f*A/sig_t_.R/sssScale)*No);
+	point3d_t vmSourcePosG = rSourcePosG + 2*(((sp.P-rSourcePosG)*No+0.66666667f*A/sig_t_.G/sssScale)*No);
+	point3d_t vmSourcePosB = rSourcePosB + 2*(((sp.P-rSourcePosB)*No+0.66666667f*A/sig_t_.B/sssScale)*No);
+	point3d_t rmSourcePosR = vSourcePosR + 2*(((sp.P-vSourcePosR)*No+0.66666667f*A/sig_t_.R/sssScale)*No);
+	point3d_t rmSourcePosG = vSourcePosG + 2*(((sp.P-vSourcePosG)*No+0.66666667f*A/sig_t_.G/sssScale)*No);
+	point3d_t rmSourcePosB = vSourcePosB + 2*(((sp.P-vSourcePosB)*No+0.66666667f*A/sig_t_.B/sssScale)*No);
+	
+	vector3d_t iToOR = ((sp.P-rSourcePosR)*No)*No;
+	vector3d_t iToOG = ((sp.P-rSourcePosG)*No)*No;
+	vector3d_t iToOB = ((sp.P-rSourcePosB)*No)*No;
+	color_t xr;
+	xr.R = iToOR.length()*sssScale;
+	xr.G = iToOG.length()*sssScale;
+	xr.B = iToOB.length()*sssScale;
+	color_t xv = xr + 1.333333333f*A/sig_t_;
+	
+	z_r = z_r*sssScale;
+	z_v = z_v*sssScale;
+	
+	color_t dr = colorSqrt(r*r + z_r*z_r);
+	color_t dv = colorSqrt(r*r + z_v*z_v);
+	
+	color_t drm, dvm;
+	drm.R = (sp.P-rmSourcePosR).length()*sssScale;
+	drm.G = (sp.P-rmSourcePosG).length()*sssScale;
+	drm.B = (sp.P-rmSourcePosB).length()*sssScale;
+	dvm.R = (sp.P-vmSourcePosR).length()*sssScale;
+	dvm.G = (sp.P-vmSourcePosG).length()*sssScale;
+	dvm.B = (sp.P-vmSourcePosB).length()*sssScale;
+	
+	rd *= alpha_;
+	
+	color_t real = z_r*(sig_tr+1/dr)*colorExp(-1.f*sig_tr*dr)/(dr*dr);
+	color_t vir = z_v*(sig_tr+1/dv)*colorExp(-1.f*sig_tr*dv)/(dv*dv);
+	
+	rd *= (real+vir);
+	
+	qd = xr*(1+sig_tr*dr)*colorExp(-1*sig_tr*dr)*0.125*M_1_PI/(dr*dr*dr)
+		+ xr*(1+sig_tr*dv)*colorExp(-1*sig_tr*dv)*0.125*M_1_PI/(dv*dv*dv)
+		+ xv*(1+sig_tr*drm)*colorExp(-1*sig_tr*dr)*0.125*M_1_PI/(drm*drm*drm)
+		+ xv*(1+sig_tr*dvm)*colorExp(-1*sig_tr*dv)*0.125*M_1_PI/(dvm*dvm*dvm); 
+	
+	if (qd.energy() > 1.0) 
+	{
+		std::cout << "qd=" << qd << std::endl;
+		std::cout << "  pcol = " << Li << "   sig_tr = " << sig_tr	<< std::endl;
+		std::cout << "  In pos = " << inPhoton.pos << "  out pos = " << sp.P << "  No = " << No << "  Ni = " << Ni << std::endl;
+		std::cout << "  rSourcePosB = " << rSourcePosB << "   vSourcePosB = " << vSourcePosB << std::endl;
+		std::cout << "  vmSourcePosB = " << vmSourcePosB << "   rmSourcePosB = " << rmSourcePosB << std::endl;
+		std::cout << "  (sp.P-rSourcePosB)*No = " << (sp.P-rSourcePosB)*No << std::endl;
+		std::cout << "  (0.66666667f*A/sig_t_.R/sssScale) = " << 0.66666667f*A/sig_t_.B/sssScale << std::endl;
+		std::cout << "  ((sp.P-rSourcePosB)*No+0.66666667f*A/sig_t_.B/sssScale)*No = " << ((sp.P-rSourcePosB)*No+0.66666667f*A/sig_t_.B/sssScale)*No << std::endl;
+		std::cout << "  xr = " << xr << "   xv = " << xv << std::endl;
+		std::cout << "  drm = " << drm << "    dvm = " << dvm << " dr= " << dr << "  dv= " << dv << std::endl << std::endl;
+	}
+	
+	
+	color_t result;
+	
+	result = rd*Li*cosWiN*Kt_i*Kt_o*M_1_PI;
+	
+	/*if (gamma <= 0.5*M_PI) {
+		result = (0.5*M_PI-gamma)*rd*Li*cosWiN*Kt_i*Kt_o*M_1_PI;
+		result = result + gamma*qd*Li*cosWiN*Kt_i*Kt_o*M_1_PI;
+	}
+	else {
+		result = qd*Li*cosWiN*Kt_i*Kt_o*M_1_PI;
+	}*/
+
+
+
+	
+	return result;
+}
+
 
 color_t mcIntegrator_t::estimateSSSMaps(renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo ) const
 {
@@ -1382,7 +1594,9 @@ color_t mcIntegrator_t::estimateSSSMaps(renderState_t &state, const surfacePoint
 	
 	for (uint i=0; i<photons.size(); i++) {
 		//sum += dipole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
-		sum += dipole2(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
+		//sum += dipole2(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
+		//sum += dipole3(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
+		sum += dipoleAdnQuadpole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
 	}
 	
 	sum *= sssScale*sssScale/((float)sssMap_t->nPaths());

@@ -285,7 +285,7 @@ inline color_t colorSqrt (const color_t &b)
 
 inline color_t colorExp (const color_t &b)
 {
-	return color_t(fExp(b.R),fExp(b.G),fExp(b.B));
+	return color_t(expf(b.R),expf(b.G),expf(b.B));
 }
 
 /*
