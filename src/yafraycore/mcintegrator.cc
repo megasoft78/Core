@@ -891,7 +891,7 @@ bool mcIntegrator_t::createSSSMaps()
 	return true;
 }
 
-float sssScale = 30.f;
+float sssScale = 10.f;
 
 bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 {
@@ -1630,10 +1630,10 @@ color_t mcIntegrator_t::estimateSSSMaps(renderState_t &state, const surfacePoint
 	const std::vector<const photon_t*>& photons = sssMap_t->getAllPhotons(sp.P);
 	
 	for (uint i=0; i<photons.size(); i++) {
-		sum += dipole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
+		//sum += dipole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
 		//sum += dipole2(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
 		//sum += dipole3(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
-		//sum += dipoleAdnQuadpole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
+		sum += dipoleAdnQuadpole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
 	}
 	
 	sum *= sssScale*sssScale/((float)sssMap_t->nPaths());
@@ -1831,7 +1831,7 @@ color_t mcIntegrator_t::getTranslucentInScatter(renderState_t& state, ray_t& ste
 					
 					//std::cout << "\t\t tau = " << lightstepTau << " and light tau = " << lightTr << std::endl;//
 					
-					inScatter += (lightTr * lcol * Kt_i);
+					inScatter += (lightTr * lcol * cosWi * Kt_i) * 4 * M_PI;
 					
 					//std::cout << "\t\t lcol = " << lcol << " contribute= " << (lightTr * lcol * Kt_i) << std::endl;
 				}
@@ -1887,7 +1887,7 @@ color_t mcIntegrator_t::getTranslucentInScatter(renderState_t& state, ray_t& ste
 					if (lightRay.tmax < 0.f) lightRay.tmax = 1e10; // infinitely distant light
 					bool shadowed = scene->isShadowed(state, lightRay);
 					if(!shadowed) {
-						ccol += ls.col / ls.pdf;
+						ccol += ls.col * cosWi / ls.pdf;
 						
 						color_t lightstepTau = sigma_t * dist * sssScale;
 						
