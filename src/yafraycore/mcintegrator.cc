@@ -891,7 +891,7 @@ bool mcIntegrator_t::createSSSMaps()
 	return true;
 }
 
-float sssScale = 10.f;
+float sssScale = 50.f;
 
 bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 {
@@ -1515,6 +1515,7 @@ color_t dipoleAdnQuadpole(const photon_t& inPhoton, const surfacePoint_t &sp, co
 	point3d_t mInPosR = inPhoton.pos + 2*(((sp.P-inPhoton.pos)*No+0.66666667f*A/sig_t_.R/sssScale)*No);
 	point3d_t mInPosG = inPhoton.pos + 2*(((sp.P-inPhoton.pos)*No+0.66666667f*A/sig_t_.G/sssScale)*No);
 	point3d_t mInPosB = inPhoton.pos + 2*(((sp.P-inPhoton.pos)*No+0.66666667f*A/sig_t_.B/sssScale)*No);
+	
 	color_t mr;
 	mr.R = (sp.P-mInPosR).length()*sssScale;
 	mr.G = (sp.P-mInPosG).length()*sssScale;
@@ -1589,6 +1590,139 @@ color_t dipoleAdnQuadpole(const photon_t& inPhoton, const surfacePoint_t &sp, co
 	return result;
 }
 
+color_t dipoleAdnQuadpole2(const photon_t& inPhoton, const surfacePoint_t &sp, const vector3d_t &wo, float IOR, float g, const color_t &sigmaS, const color_t &sigmaA )
+{
+	color_t rd(0.25*M_1_PI);
+	color_t qd(1.f);
+	
+	const color_t Li = inPhoton.c;
+	const vector3d_t wi = inPhoton.direction();
+	const vector3d_t No = sp.N;
+	const vector3d_t Ni = inPhoton.hitNormal;
+	
+	
+	float gamma = acosf(dot(No, Ni));
+	
+	float cosWiN = wi*Ni;
+	
+	float Kr_i, Kt_i, Kr_o, Kt_o;
+	fresnel(wi, Ni, IOR, Kr_i, Kt_i);
+	fresnel(wo, No, IOR, Kr_o, Kt_o);
+	
+	vector3d_t v = inPhoton.pos-sp.P;
+	float r  = v.length()*sssScale;
+	
+	color_t sig_s_ = (1.f-g)*sigmaS;
+	color_t sig_t_ = sigmaA + sig_s_;
+	color_t alpha_ = sig_s_/sig_t_;
+	color_t sig_tr = colorSqrt(3*sigmaA*sig_t_);
+	
+	color_t z_r = 1.f/sig_t_/sssScale;
+	float Fdr = -1.440/(IOR*IOR)+0.710/IOR+0.668+0.0636*IOR;
+	float A = (1+Fdr)/(1-Fdr);
+	color_t z_v = z_r*(1+1.333333333f*A);
+	
+	point3d_t rSourcePosR = inPhoton.pos + inPhoton.hitNormal*-1*z_r.R;
+	point3d_t rSourcePosG = inPhoton.pos + inPhoton.hitNormal*-1*z_r.G;
+	point3d_t rSourcePosB = inPhoton.pos + inPhoton.hitNormal*-1*z_r.B;
+	point3d_t vSourcePosR = inPhoton.pos + inPhoton.hitNormal*z_v.R;
+	point3d_t vSourcePosG = inPhoton.pos + inPhoton.hitNormal*z_v.G;
+	point3d_t vSourcePosB = inPhoton.pos + inPhoton.hitNormal*z_v.B;
+	
+	//	point3d_t vmSourcePosR = rSourcePosR + 2*(((sp.P-rSourcePosR)*No+0.66666667f*A/sig_t_.R/sssScale)*No);
+	//	point3d_t vmSourcePosG = rSourcePosG + 2*(((sp.P-rSourcePosG)*No+0.66666667f*A/sig_t_.G/sssScale)*No);
+	//	point3d_t vmSourcePosB = rSourcePosB + 2*(((sp.P-rSourcePosB)*No+0.66666667f*A/sig_t_.B/sssScale)*No);
+	//	point3d_t rmSourcePosR = vSourcePosR + 2*(((sp.P-vSourcePosR)*No+0.66666667f*A/sig_t_.R/sssScale)*No);
+	//	point3d_t rmSourcePosG = vSourcePosG + 2*(((sp.P-vSourcePosG)*No+0.66666667f*A/sig_t_.G/sssScale)*No);
+	//	point3d_t rmSourcePosB = vSourcePosB + 2*(((sp.P-vSourcePosB)*No+0.66666667f*A/sig_t_.B/sssScale)*No);
+	
+	// compute the intersect diection of the two faces
+	
+	vector3d_t refDir;
+	vector3d_t intersectDir = Ni^No;
+	if ( intersectDir.length() < 1e-6 )
+		refDir = sp.P - inPhoton.pos;
+	else
+		refDir = intersectDir^Ni;
+	refDir.normalize();
+	
+	point3d_t mInPosR = inPhoton.pos + 2*(((sp.P-inPhoton.pos)*refDir+0.66666667f*A/sig_t_.R/sssScale)*refDir);
+	point3d_t mInPosG = inPhoton.pos + 2*(((sp.P-inPhoton.pos)*refDir+0.66666667f*A/sig_t_.G/sssScale)*refDir);
+	point3d_t mInPosB = inPhoton.pos + 2*(((sp.P-inPhoton.pos)*refDir+0.66666667f*A/sig_t_.B/sssScale)*refDir);
+	
+	color_t mr;
+	mr.R = (sp.P-mInPosR).length()*sssScale;
+	mr.G = (sp.P-mInPosG).length()*sssScale;
+	mr.B = (sp.P-mInPosB).length()*sssScale;
+	
+	vector3d_t iToOR = ((sp.P-rSourcePosR)*refDir)*refDir;
+	vector3d_t iToOG = ((sp.P-rSourcePosG)*refDir)*refDir;
+	vector3d_t iToOB = ((sp.P-rSourcePosB)*refDir)*refDir;
+	color_t xr;
+	xr.R = iToOR.length()*sssScale;
+	xr.G = iToOG.length()*sssScale;
+	xr.B = iToOB.length()*sssScale;
+	color_t xv = xr + 1.333333333f*A/sig_t_;
+	
+	z_r = z_r*sssScale;
+	z_v = z_v*sssScale;
+	
+	color_t dr = colorSqrt(r*r + z_r*z_r);
+	color_t dv = colorSqrt(r*r + z_v*z_v);
+	
+	color_t drm, dvm;
+	//	drm.R = (sp.P-rmSourcePosR).length()*sssScale;
+	//	drm.G = (sp.P-rmSourcePosG).length()*sssScale;
+	//	drm.B = (sp.P-rmSourcePosB).length()*sssScale;
+	//	dvm.R = (sp.P-vmSourcePosR).length()*sssScale;
+	//	dvm.G = (sp.P-vmSourcePosG).length()*sssScale;
+	//	dvm.B = (sp.P-vmSourcePosB).length()*sssScale;
+	
+	dvm = colorSqrt(mr*mr+z_r*z_r);
+	drm = colorSqrt(mr*mr+z_v*z_v);
+	
+	
+	rd *= alpha_;
+	
+	color_t real = z_r*(sig_tr+1/dr)*colorExp(-1.f*sig_tr*dr)/(dr*dr);
+	color_t vir = z_v*(sig_tr+1/dv)*colorExp(-1.f*sig_tr*dv)/(dv*dv);
+	
+	rd *= (real+vir);
+	
+	qd = xr*(1+sig_tr*dr)*colorExp(-1*sig_tr*dr)*0.125*M_1_PI/(dr*dr*dr)
+	+ xr*(1+sig_tr*dv)*colorExp(-1*sig_tr*dv)*0.125*M_1_PI/(dv*dv*dv)
+	+ xv*(1+sig_tr*drm)*colorExp(-1*sig_tr*drm)*0.125*M_1_PI/(drm*drm*drm)
+	+ xv*(1+sig_tr*dvm)*colorExp(-1*sig_tr*dvm)*0.125*M_1_PI/(dvm*dvm*dvm); 
+	
+	if (qd.energy() > 1.0) 
+	{
+		std::cout << "qd=" << qd << std::endl;
+		std::cout << "  pcol = " << Li << "   sig_tr = " << sig_tr	<< std::endl;
+		std::cout << "  In pos = " << inPhoton.pos << "  out pos = " << sp.P << "  No = " << No << "  Ni = " << Ni << std::endl;
+		std::cout << "  rSourcePosB = " << rSourcePosB << "   vSourcePosB = " << vSourcePosB << std::endl;
+		//std::cout << "  vmSourcePosB = " << vmSourcePosB << "   rmSourcePosB = " << rmSourcePosB << std::endl;
+		//std::cout << "  (sp.P-rSourcePosB)*No = " << (sp.P-rSourcePosB)*No << std::endl;
+		//std::cout << "  (0.66666667f*A/sig_t_.R/sssScale) = " << 0.66666667f*A/sig_t_.B/sssScale << std::endl;
+		//std::cout << "  ((sp.P-rSourcePosB)*No+0.66666667f*A/sig_t_.B/sssScale)*No = " << ((sp.P-rSourcePosB)*No+0.66666667f*A/sig_t_.B/sssScale)*No << std::endl;
+		std::cout << "  xr = " << xr << "   xv = " << xv << std::endl;
+		std::cout << "  drm = " << drm << "    dvm = " << dvm << " dr= " << dr << "  dv= " << dv << std::endl << std::endl;
+	}
+	
+	
+	color_t result;
+	
+	result = rd*Li*cosWiN*Kt_i*Kt_o*M_1_PI;
+	
+	/*if (gamma <= 0.5*M_PI && gamma >=0) {
+	 result = 2*M_1_PI*(0.5*M_PI-gamma)*rd*Li*cosWiN*Kt_i*Kt_o*M_1_PI;
+	 result = result + 2*M_1_PI*gamma*qd*Li*cosWiN*Kt_i*Kt_o*M_1_PI;
+	 }
+	 else {
+	 result = rd*Li*cosWiN*Kt_i*Kt_o*M_1_PI;
+	 }*/
+	
+	return result;
+}
 
 color_t mcIntegrator_t::estimateSSSMaps(renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo ) const
 {
@@ -1633,7 +1767,8 @@ color_t mcIntegrator_t::estimateSSSMaps(renderState_t &state, const surfacePoint
 		//sum += dipole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
 		//sum += dipole2(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
 		//sum += dipole3(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
-		sum += dipoleAdnQuadpole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
+		//sum += dipoleAdnQuadpole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
+		sum += dipoleAdnQuadpole2(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
 	}
 	
 	sum *= sssScale*sssScale/((float)sssMap_t->nPaths());
