@@ -134,6 +134,7 @@ colorA_t directLighting_t::integrate(renderState_t &state, diffRay_t &ray) const
 		if (bsdfs & BSDF_TRANSLUCENT) {
 			//col += estimateAllDirectLight(state, sp, wo);
 			col += estimateSSSMaps(state,sp,wo);
+			//col += estimateSSSSingleScattering(state,sp,wo);
 		}
 		
 		recursiveRaytrace(state, ray, bsdfs, sp, wo, col, alpha);
