@@ -891,7 +891,7 @@ bool mcIntegrator_t::createSSSMaps()
 	return true;
 }
 
-float sssScale = 50.f;
+float sssScale = 40.f;
 
 bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 {
@@ -1017,8 +1017,8 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 					// get the refrace try
 					float sc1 = ourRandom();//hal2.getNext(); 
 					float sc2,sc3;
-					//float scatteDist = -1.f*log(1-sc1)*sig_t_1/sssScale;
-					float scatteDist = 1.f/(sig_t_1*sssScale);
+					float scatteDist = -1.f*log(1-sc1)*sig_t_1/sssScale;
+					//float scatteDist = 1.f/(sig_t_1*sssScale);
 					vector3d_t sdir = wo;
 					ray.from = hit->P;
 					ray.dir = wo;
@@ -1026,7 +1026,7 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 					ray.tmax = scatteDist;
 					
 					
-					point3d_t scattePt = ray.from + scatteDist*ray.dir;
+					/*point3d_t scattePt = ray.from + scatteDist*ray.dir;
 					float cosWo = ray.dir*(-1.f*hit->N);
 					photon_t np(wi, hit->P, pcol);
 					np.hitNormal = hit->N;
@@ -1052,7 +1052,7 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 							sssMap_t->setNumPaths(curr);
 							SSSMaps[refObj] = sssMap_t;
 						}
-					} 
+					}*/ 
 					
 					//std::cout << "first refracted = " << curr << "  wi = " << wi << "  N=" << hit->N << " wo=" << wo << "   pcol=" << pcol << std::endl;
 					
@@ -1088,7 +1088,7 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 								// store photon here
 								//photon_t np(ray.dir, scattePt, pcol);
 								
-								/*float cosWo = ray.dir*(-1.f*hit->N);
+								float cosWo = ray.dir*(-1.f*hit->N);
 								photon_t np(wi, hit->P, pcol_t);
 								np.hitNormal = hit->N;
 								np.sourcePos = scattePt;
@@ -1113,7 +1113,7 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 										sssMap_t->setNumPaths(curr);
 										SSSMaps[refObj] = sssMap_t;
 									}
-								}*/ 
+								}
 								isStored = true;
 								
 								//break;
@@ -1629,22 +1629,34 @@ color_t dipoleAdnQuadpole2(const photon_t& inPhoton, const surfacePoint_t &sp, c
 	point3d_t vSourcePosG = inPhoton.pos + inPhoton.hitNormal*z_v.G;
 	point3d_t vSourcePosB = inPhoton.pos + inPhoton.hitNormal*z_v.B;
 	
-	//	point3d_t vmSourcePosR = rSourcePosR + 2*(((sp.P-rSourcePosR)*No+0.66666667f*A/sig_t_.R/sssScale)*No);
-	//	point3d_t vmSourcePosG = rSourcePosG + 2*(((sp.P-rSourcePosG)*No+0.66666667f*A/sig_t_.G/sssScale)*No);
-	//	point3d_t vmSourcePosB = rSourcePosB + 2*(((sp.P-rSourcePosB)*No+0.66666667f*A/sig_t_.B/sssScale)*No);
-	//	point3d_t rmSourcePosR = vSourcePosR + 2*(((sp.P-vSourcePosR)*No+0.66666667f*A/sig_t_.R/sssScale)*No);
-	//	point3d_t rmSourcePosG = vSourcePosG + 2*(((sp.P-vSourcePosG)*No+0.66666667f*A/sig_t_.G/sssScale)*No);
-	//	point3d_t rmSourcePosB = vSourcePosB + 2*(((sp.P-vSourcePosB)*No+0.66666667f*A/sig_t_.B/sssScale)*No);
-	
-	// compute the intersect diection of the two faces
+		// compute the intersect diection of the two faces
 	
 	vector3d_t refDir;
 	vector3d_t intersectDir = Ni^No;
 	if ( intersectDir.length() < 1e-6 )
-		refDir = sp.P - inPhoton.pos;
+	{
+		if (Ni*No >= 0) {
+			refDir = sp.P - inPhoton.pos;
+		}
+		else {
+			refDir = No;
+		}
+
+	}
 	else
 		refDir = intersectDir^Ni;
 	refDir.normalize();
+	
+	if ((sp.P-inPhoton.pos)*refDir < 0) {
+		refDir *= -1.f;
+	}
+	
+//	point3d_t vmSourcePosR = rSourcePosR + 2*(((sp.P-rSourcePosR)*refDir+0.66666667f*A/sig_t_.R/sssScale)*refDir);
+//	point3d_t vmSourcePosG = rSourcePosG + 2*(((sp.P-rSourcePosG)*refDir+0.66666667f*A/sig_t_.G/sssScale)*refDir);
+//	point3d_t vmSourcePosB = rSourcePosB + 2*(((sp.P-rSourcePosB)*refDir+0.66666667f*A/sig_t_.B/sssScale)*refDir);
+//	point3d_t rmSourcePosR = vSourcePosR + 2*(((sp.P-vSourcePosR)*refDir+0.66666667f*A/sig_t_.R/sssScale)*refDir);
+//	point3d_t rmSourcePosG = vSourcePosG + 2*(((sp.P-vSourcePosG)*refDir+0.66666667f*A/sig_t_.G/sssScale)*refDir);
+//	point3d_t rmSourcePosB = vSourcePosB + 2*(((sp.P-vSourcePosB)*refDir+0.66666667f*A/sig_t_.B/sssScale)*refDir);
 	
 	point3d_t mInPosR = inPhoton.pos + 2*(((sp.P-inPhoton.pos)*refDir+0.66666667f*A/sig_t_.R/sssScale)*refDir);
 	point3d_t mInPosG = inPhoton.pos + 2*(((sp.P-inPhoton.pos)*refDir+0.66666667f*A/sig_t_.G/sssScale)*refDir);
@@ -1671,12 +1683,12 @@ color_t dipoleAdnQuadpole2(const photon_t& inPhoton, const surfacePoint_t &sp, c
 	color_t dv = colorSqrt(r*r + z_v*z_v);
 	
 	color_t drm, dvm;
-	//	drm.R = (sp.P-rmSourcePosR).length()*sssScale;
-	//	drm.G = (sp.P-rmSourcePosG).length()*sssScale;
-	//	drm.B = (sp.P-rmSourcePosB).length()*sssScale;
-	//	dvm.R = (sp.P-vmSourcePosR).length()*sssScale;
-	//	dvm.G = (sp.P-vmSourcePosG).length()*sssScale;
-	//	dvm.B = (sp.P-vmSourcePosB).length()*sssScale;
+//	drm.R = (sp.P-rmSourcePosR).length()*sssScale;
+//	drm.G = (sp.P-rmSourcePosG).length()*sssScale;
+//	drm.B = (sp.P-rmSourcePosB).length()*sssScale;
+//	dvm.R = (sp.P-vmSourcePosR).length()*sssScale;
+//	dvm.G = (sp.P-vmSourcePosG).length()*sssScale;
+//	dvm.B = (sp.P-vmSourcePosB).length()*sssScale;
 	
 	dvm = colorSqrt(mr*mr+z_r*z_r);
 	drm = colorSqrt(mr*mr+z_v*z_v);
@@ -1689,37 +1701,41 @@ color_t dipoleAdnQuadpole2(const photon_t& inPhoton, const surfacePoint_t &sp, c
 	
 	rd *= (real+vir);
 	
-	qd = xr*(1+sig_tr*dr)*colorExp(-1*sig_tr*dr)*0.125*M_1_PI/(dr*dr*dr)
-	+ xr*(1+sig_tr*dv)*colorExp(-1*sig_tr*dv)*0.125*M_1_PI/(dv*dv*dv)
-	+ xv*(1+sig_tr*drm)*colorExp(-1*sig_tr*drm)*0.125*M_1_PI/(drm*drm*drm)
+	qd = z_r*(1+sig_tr*dr)*colorExp(-1*sig_tr*dr)*0.125*M_1_PI/(dr*dr*dr)
+	+ z_v*(1+sig_tr*dv)*colorExp(-1*sig_tr*dv)*0.125*M_1_PI/(dv*dv*dv)
+	+ xr*(1+sig_tr*drm)*colorExp(-1*sig_tr*drm)*0.125*M_1_PI/(drm*drm*drm)
 	+ xv*(1+sig_tr*dvm)*colorExp(-1*sig_tr*dvm)*0.125*M_1_PI/(dvm*dvm*dvm); 
 	
-	if (qd.energy() > 1.0) 
-	{
-		std::cout << "qd=" << qd << std::endl;
-		std::cout << "  pcol = " << Li << "   sig_tr = " << sig_tr	<< std::endl;
-		std::cout << "  In pos = " << inPhoton.pos << "  out pos = " << sp.P << "  No = " << No << "  Ni = " << Ni << std::endl;
-		std::cout << "  rSourcePosB = " << rSourcePosB << "   vSourcePosB = " << vSourcePosB << std::endl;
-		//std::cout << "  vmSourcePosB = " << vmSourcePosB << "   rmSourcePosB = " << rmSourcePosB << std::endl;
-		//std::cout << "  (sp.P-rSourcePosB)*No = " << (sp.P-rSourcePosB)*No << std::endl;
-		//std::cout << "  (0.66666667f*A/sig_t_.R/sssScale) = " << 0.66666667f*A/sig_t_.B/sssScale << std::endl;
-		//std::cout << "  ((sp.P-rSourcePosB)*No+0.66666667f*A/sig_t_.B/sssScale)*No = " << ((sp.P-rSourcePosB)*No+0.66666667f*A/sig_t_.B/sssScale)*No << std::endl;
-		std::cout << "  xr = " << xr << "   xv = " << xv << std::endl;
-		std::cout << "  drm = " << drm << "    dvm = " << dvm << " dr= " << dr << "  dv= " << dv << std::endl << std::endl;
-	}
-	
-	
+//	color_t temp = z_r*(1+sig_tr*dr)*colorExp(-1*sig_tr*dr)*0.125*M_1_PI/(dr*dr*dr)
+//				 + z_v*(1+sig_tr*dv)*colorExp(-1*sig_tr*dv)*0.125*M_1_PI/(dv*dv*dv);
+//	
+//	if (temp.energy() < qd.energy()) 
+//	{
+//		std::cout << "qd=" << qd << std::endl;
+//		std::cout << "rd=" << temp << std::endl;
+//		std::cout << "  pcol = " << Li << "   sig_tr = " << sig_tr	<< std::endl;
+//		std::cout << "  In pos = " << inPhoton.pos << "  out pos = " << sp.P << "  No = " << No << "  Ni = " << Ni << std::endl;
+//		std::cout << "  refDir = " << refDir << "   (sp.P-inPhoton.pos)*refDir = " << (sp.P-inPhoton.pos)*refDir << std::endl;
+//		std::cout << "  mInPosR = " << mInPosR << "   mInPosG = " << mInPosG << "   mInPosB = " << mInPosB << std::endl;
+//		//std::cout << "  vmSourcePosB = " << vmSourcePosB << "   rmSourcePosB = " << rmSourcePosB << std::endl;
+//		//std::cout << "  (sp.P-rSourcePosB)*No = " << (sp.P-rSourcePosB)*No << std::endl;
+//		//std::cout << "  (0.66666667f*A/sig_t_.R/sssScale) = " << 0.66666667f*A/sig_t_.B/sssScale << std::endl;
+//		//std::cout << "  ((sp.P-rSourcePosB)*No+0.66666667f*A/sig_t_.B/sssScale)*No = " << ((sp.P-rSourcePosB)*No+0.66666667f*A/sig_t_.B/sssScale)*No << std::endl;
+//		std::cout << "  xr = " << xr << "   xv = " << xv << std::endl;
+//		std::cout << "  drm = " << drm << "    dvm = " << dvm << " dr= " << dr << "  dv= " << dv << std::endl << std::endl;
+//	}
+
 	color_t result;
 	
-	result = rd*Li*cosWiN*Kt_i*Kt_o*M_1_PI;
+	result = qd*Li*cosWiN*Kt_i*Kt_o*M_1_PI;
 	
-	/*if (gamma <= 0.5*M_PI && gamma >=0) {
-	 result = 2*M_1_PI*(0.5*M_PI-gamma)*rd*Li*cosWiN*Kt_i*Kt_o*M_1_PI;
-	 result = result + 2*M_1_PI*gamma*qd*Li*cosWiN*Kt_i*Kt_o*M_1_PI;
-	 }
-	 else {
-	 result = rd*Li*cosWiN*Kt_i*Kt_o*M_1_PI;
-	 }*/
+//	if (gamma <= 0.5*M_PI && gamma >=0) {
+//	 result = 2*M_1_PI*(0.5*M_PI-gamma)*rd*Li*cosWiN*Kt_i*Kt_o*M_1_PI;
+//	 result = result + 2*M_1_PI*gamma*qd*Li*cosWiN*Kt_i*Kt_o*M_1_PI;
+//	 }
+//	 else {
+//	 result = rd*Li*cosWiN*Kt_i*Kt_o*M_1_PI;
+//	 }
 	
 	return result;
 }
@@ -2018,6 +2034,7 @@ color_t mcIntegrator_t::getTranslucentInScatter(renderState_t& state, ray_t& ste
 					fresnel(outRay.dir, outHit.N, IOR, Kr_i, Kt_i);
 					
 					// ...shadowed...
+					lightRay.from = exitP;
 					lightRay.tmin = YAF_SHADOW_BIAS; // < better add some _smart_ self-bias value...this is bad.
 					if (lightRay.tmax < 0.f) lightRay.tmax = 1e10; // infinitely distant light
 					bool shadowed = scene->isShadowed(state, lightRay);
@@ -2043,6 +2060,153 @@ color_t mcIntegrator_t::getTranslucentInScatter(renderState_t& state, ray_t& ste
 	
 	state.userdata = o_udat;
 	return inScatter;
+}
+
+color_t mcIntegrator_t::estimateSSSSingleScatteringPhotons(renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo) const
+{
+	float stepSize = 1.f/sssScale;
+	color_t singleS(0.0f);
+	
+	// get the volumetric photonmap
+	const object3d_t* hitObj = sp.object;
+	std::map<const object3d_t*, photonMap_t*>::const_iterator it = SSSMaps.find(hitObj);
+	if ( it == SSSMaps.end() ) {
+		return singleS;
+	}
+	photonMap_t* sssMap_t = it->second;
+	
+	float t0 = 1e10f, t1 = -1e10f;
+	//	std::cout << "entry point is " << sp.P << std::endl;
+	//	std::cout << "dir  is " << -1*wo << std::endl;
+	
+	// get the material infomation
+	void *o_udat = state.userdata;
+	unsigned char userdata[USER_DATA_SIZE];
+	state.userdata = (void *)userdata;
+	
+	BSDF_t bsdfs;
+	const material_t *material = sp.material;
+	material->initBSDF(state, sp, bsdfs);
+	
+	color_t sigma_s, sigma_a, sigma_t;
+	float IOR;
+	TranslucentData_t* dat = (TranslucentData_t*)state.userdata;
+	sigma_a = dat->sig_a;
+	sigma_s = dat->sig_s;
+	sigma_t = sigma_s + sigma_a;
+	IOR = dat->IOR;
+	
+	float Kr_o, Kt_o;
+	fresnel(wo, sp.N, IOR, Kr_o, Kt_o);	
+	
+	// get the refracted direction
+	vector3d_t refDir;
+	if (!refract(sp.N, wo, refDir, IOR)) {
+		return singleS;
+	}
+	
+	
+	ray_t ray;
+	ray.from = sp.P;
+	ray.dir = refDir;
+	ray.tmin = MIN_RAYDIST;
+	ray.tmax = -1;
+	
+	surfacePoint_t hit;
+	
+	if (!scene->intersect(ray, hit)) {
+		return singleS;
+	}
+	
+	float badDist = (hit.P-sp.P).length();
+	
+	bool ismeetBadFace = false;
+	while ( hit.N * refDir < 0 )
+	{
+		ismeetBadFace = true;
+		std::cout << "not out " << hit.P << std::endl;
+		ray.from = hit.P;
+		ray.tmin = MIN_RAYDIST;
+		ray.tmax = -1;
+		if (!scene->intersect(ray, hit)) {
+			return singleS;
+		}
+	}
+	if(ismeetBadFace){
+		std::cout << " bad dist = " << badDist << "  new dist = " << (hit.P-sp.P).length() << std::endl;
+		std::cout << std::endl;
+	}
+	t0 = 0;
+	t1 = (hit.P-sp.P).length();
+	float dist = (t1-t0);			
+	float pos = t0 - (*state.prng)()*stepSize;
+	int samples = dist/stepSize + 1;
+	float currentStep = stepSize;
+	int stepLength = 1;
+	color_t trTmp(1.f);
+	
+	float singleSRadius = 3.f / sssScale;
+	
+	color_t stepTau(0.f); 
+	for (int stepSample = 0; stepSample < samples; stepSample += stepLength)
+	{
+		ray_t stepRay(sp.P + (ray.dir * pos), ray.dir, 0, currentStep, 0);
+		
+		stepTau += sigma_t*currentStep*sssScale;
+		
+		trTmp = colorExp(-1*stepTau);
+		
+		//std::cout << "\t scatter point is " << stepRay.from << std::endl;
+		
+		//singleS += trTmp * getTranslucentInScatter(state, stepRay, currentStep) * sigma_s * currentStep * Kt_o * sssScale;
+		// here it use sssMaps to evaluate the single scattering
+		
+		// copied from estimateCaustic
+		{
+			foundPhoton_t *gathered = (foundPhoton_t *)alloca(nCausSearch * sizeof(foundPhoton_t));
+			int nGathered = 0;
+			
+			float gRadiusSquare = singleSRadius * singleSRadius;
+			
+			nGathered = sssMap_t->gather(sp.P, gathered, nCausSearch, gRadiusSquare);
+			
+			//std::cout << "sample Idx " << stepSample << std::endl;
+			//std::cout << "find photon " << nGathered << std::endl;
+			
+			color_t sum(0.f);
+			
+			if(nGathered > 0)
+			{
+				float k = 0.75f*M_1_PI/(singleSRadius*singleSRadius*singleSRadius);
+				const photon_t *photon;
+				
+				for(int i=0; i<nGathered; ++i)
+				{
+					photon = gathered[i].photon;
+					
+					color_t attenuation = colorExp(-1*(photon->pos-photon->sourcePos).length()*sssScale*sigma_t);
+					
+					sum += photon->color() * phaseFunc(-1*photon->direction(), -1*stepRay.dir );
+				}
+				sum *= k / sssMap_t->nPaths();
+				sum = sum / sigma_s;
+				//std::cout << " photon color " << sum << std::endl << std::endl;
+			}
+			
+			singleS += trTmp * sum * sigma_s * currentStep * Kt_o * sssScale;
+			
+		}			
+		
+		pos += currentStep;
+	}
+	//	std::cout << "refracted dir  is " << refDir << std::endl;
+	//	std::cout << "exit point is " << hit.P << std::endl;
+	//	std::cout << "the length of ray is " << t1-t0 << std::endl << std::endl;
+	
+	// restore old render state data
+	state.userdata = o_udat;
+	
+	return singleS;
 }
 
 __END_YAFRAY

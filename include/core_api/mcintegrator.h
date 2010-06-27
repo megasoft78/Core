@@ -72,6 +72,8 @@ class YAFRAYCORE_EXPORT mcIntegrator_t: public tiledIntegrator_t
 	
 		virtual color_t estimateSSSSingleScattering(renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo) const;
 		virtual color_t getTranslucentInScatter(renderState_t& state, ray_t& stepRay, float currentStep) const;
+	
+		virtual color_t estimateSSSSingleScatteringPhotons(renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo) const;
 
 		
 		int rDepth; //! Ray depth

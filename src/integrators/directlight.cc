@@ -135,6 +135,7 @@ colorA_t directLighting_t::integrate(renderState_t &state, diffRay_t &ray) const
 			//col += estimateAllDirectLight(state, sp, wo);
 			col += estimateSSSMaps(state,sp,wo);
 			//col += estimateSSSSingleScattering(state,sp,wo);
+			//col += estimateSSSSingleScatteringPhotons(state,sp,wo);
 		}
 		
 		recursiveRaytrace(state, ray, bsdfs, sp, wo, col, alpha);
