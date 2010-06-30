@@ -108,6 +108,16 @@ class YAFRAYCORE_EXPORT mcIntegrator_t: public tiledIntegrator_t
 		
 	
 		std::map<const object3d_t*, photonMap_t*>	SSSMaps; //! Container of SSS photons for different objects
+	public:
+		static float sssScale;
+};
+
+
+struct TranslucentData_t
+{
+	color_t sig_s;
+	color_t sig_a;
+	float	IOR;
 };
 
 __END_YAFRAY
