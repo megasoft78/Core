@@ -308,211 +308,212 @@ bool photonIntegrator_t::preprocess()
 			}
 			
 			// if the rey intersects with translucent objects.
-			else if(bsdfs & BSDF_TRANSLUCENT)
-			{	
-				/*std::cout << "enter ray = " << curr << "  wi = " << wi  << std::endl;
-				 if (isRefrectedOut) {
-				 std::cout << "In  curr=" << curr << "  wi = " << wi << "  N=" << hit->N << " from=" << ray.from << "   pcol=" << pcol << std::endl;
-				 isRefrectedOut = false;
-				 }*/
-				color_t sigma_s, sigma_a;
-				float IOR;
-				TranslucentData_t* dat = (TranslucentData_t*)state.userdata;
-				sigma_a = dat->sig_a;
-				sigma_s = dat->sig_s;
-				IOR = dat->IOR;
-				float g = 0.f;
-				
-				float sig_a_ = sigma_a.col2bri();
-				float sig_s_ = sigma_s.col2bri();
-				float sig_t_ = sig_a_ + (1.f-g)*sig_s_;
-				float sig_t_1 = 1.f/sig_t_;
-				
-				//Halton hal2(7);
-				//hal2.setStart(curr);
-				
-				//std::cout << "random seed " << curr << std::endl;
-				
-				// if photon intersect with SSS material, get the refract direction and continue to trace this photon.
-				if( refract(hit->N, wi, wo, IOR) )
-				{
-					inCount++;
-					const object3d_t* refObj = hit->object;
-					bool refracOut = false;
-					bool isStored = false;
-					
-					
-					// get the refrace try
-					float sc1 = ourRandom();//hal2.getNext(); 
-					float sc2,sc3;
-					//float scatteDist = -1.f*log(1-sc1)*sig_t_1/sssScale;
-					float scatteDist = 1.f/(sig_t_1*sssScale);
-					vector3d_t sdir = wo;
-					ray.from = hit->P;
-					ray.dir = wo;
-					ray.tmin = MIN_RAYDIST/sssScale;
-					ray.tmax = scatteDist;
-					
-					
-					point3d_t scattePt = ray.from + scatteDist*ray.dir;
-					float cosWo = ray.dir*(-1.f*hit->N);
-					photon_t np(wi, hit->P, pcol);
-					np.hitNormal = hit->N;
-					np.sourcePos = scattePt;
-					np.sourceDepth = cosWo*scatteDist;
-					
-					//std::cout << "cosWo = " << cosWo << " scatterDist = " << scatteDist << "  depth = " << np.sourceDepth << std::endl;
-					
-					if(refObj)
-					{
-						//std::cout << curr <<" bounces:" << nBounces << std::endl;
-						std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.find(refObj);
-						if(it!=SSSMaps.end()){
-							// exist SSSMap for this object
-							SSSMaps[refObj]->pushPhoton(np);
-							SSSMaps[refObj]->setNumPaths(curr);
-						}
-						else {
-							// need create a new SSSMap for this object
-							//std::cout << "new translucent is " << bsdfs << "   " << hitObj << std::endl;
-							photonMap_t* sssMap_t = new photonMap_t();
-							sssMap_t->pushPhoton(np);
-							sssMap_t->setNumPaths(curr);
-							SSSMaps[refObj] = sssMap_t;
-						}
-					} 
-					
-					//std::cout << "first refracted = " << curr << "  wi = " << wi << "  N=" << hit->N << " wo=" << wo << "   pcol=" << pcol << std::endl;
-					
-					
-					/*int scatNum = 0;
-					
-					while (!(refracOut = scene->intersect(ray, *hit2)))
-					{
-						//std::cout << "ray = " << curr << "  ray.dir = " << ray.dir << "  from=" << ray.from << "  scatteDist=" << ray.tmax << std::endl;
-						// compute scatter point
-						point3d_t scattePt = ray.from + scatteDist*ray.dir;
-						pcol_t = pcol;
-						pcol *= fExp(-1*sig_t_*scatteDist*sssScale); // power attuation
-						
-						if (pcol.energy() < 1e-6) {
-							break;
-						}
-						
-						// roulette whether scatter or absorb
-						float s = ourRandom();//hal2.getNext();
-						if (  s < sig_a_*sig_t_1 ) {
-							// absorbed, then break
-							//std::cout << "absorbed" << std::endl;
-							absorbCount++;
-							break;
-						}
-						else 
-						{
-							// scattered
-							// store photon
-							//std::cout << "scattered " << s << " " <<sig_a_*sig_t_1 << std::endl;
-							if (!isStored) {
-								// store photon here
-								//photon_t np(ray.dir, scattePt, pcol);
-								
-								float cosWo = ray.dir*(-1.f*hit->N);
-								photon_t np(wi, hit->P, pcol_t);
-								np.hitNormal = hit->N;
-								np.sourcePos = scattePt;
-								np.sourceDepth = cosWo*scatteDist;
-								
-								//std::cout << "cosWo = " << cosWo << " scatterDist = " << scatteDist << "  depth = " << np.sourceDepth << std::endl;
-								
-								if(refObj)
-								{
-									//std::cout << curr <<" bounces:" << nBounces << std::endl;
-									std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.find(refObj);
-									if(it!=SSSMaps.end()){
-										// exist SSSMap for this object
-										SSSMaps[refObj]->pushPhoton(np);
-										SSSMaps[refObj]->setNumPaths(curr);
-									}
-									else {
-										// need create a new SSSMap for this object
-										std::cout << "new translucent is " << bsdfs << "   " << refObj << std::endl;
-										photonMap_t* sssMap_t = new photonMap_t();
-										sssMap_t->pushPhoton(np);
-										sssMap_t->setNumPaths(curr);
-										SSSMaps[refObj] = sssMap_t;
-									}
-								}
-								isStored = true;
-								
-								//break;
-							}
-							
-							// get the scatter direction
-							sc2 = scrHalton(2, scatteCount);
-							sc3 = scrHalton(3, scatteCount);
-							sdir = SampleSphere(sc2,sc3);
-							
-							sc1 = ourRandom();//hal2.getNext();
-							scatteDist = -1.f*log(1-sc1)*sig_t_1/sssScale;
-							ray.from = scattePt;
-							ray.dir = sdir;
-							ray.tmin = MIN_RAYDIST/sssScale;
-							ray.tmax = scatteDist;
-							
-							scatteCount++;
-							scatNum++;
-							//if (scatNum >= nBounces) {
-							//	break;
-							//}
-							
-						}
-					}
-					
-					if (refracOut) {
-						
-						//std::cout << "ray = " << curr << "  ray.dir = " << ray.dir << "  from=" << ray.from << "  scatteDist=" << ray.tmax << std::endl;
-						
-						// refract out
-						// compute new direction and
-						std::swap(hit, hit2);
-						wi = -ray.dir;
-						material = hit->material;
-						
-						if (-1*hit->N*wi<=0) {
-							break;
-						}
-						
-						if( refract(-1*hit->N, wi, wo, 1.0f/IOR) )
-						{
-							//std::cout << "Out curr=" << curr << "  wi = " << wi << "  N=" << hit->N*-1 << " wo=" << wo << "  from=" << ray.from << "   pcol=" << pcol << std::endl;
-							
-							vector3d_t lastTransmit = hit->P - ray.from;
-							scatteDist = lastTransmit.length();
-							
-							pcol *= fExp(-1*sig_t_*scatteDist*sssScale);
-							ray.from = hit->P;
-							ray.dir = wo;
-							ray.tmin = MIN_RAYDIST/sssScale;
-							ray.tmax = -1.0;
-							++nBounces;
-							//if (!isStored) {
-							//std::cout << "photon refacted out" << "  " << pcol << std::endl;
-							//}
-							isRefrectedOut = true;
-							break;//continue;
-						}
-						else
-						{
-							break;
-						}
-					}
-					else {
-						// not refracted out, just because absorbed or power is too small
-						break;
-					} */
-				}
-				
-			}
+//			else if(bsdfs & BSDF_TRANSLUCENT)
+//			{	
+//				/*std::cout << "enter ray = " << curr << "  wi = " << wi  << std::endl;
+//				 if (isRefrectedOut) {
+//				 std::cout << "In  curr=" << curr << "  wi = " << wi << "  N=" << hit->N << " from=" << ray.from << "   pcol=" << pcol << std::endl;
+//				 isRefrectedOut = false;
+//				 }*/
+//				color_t sigma_s, sigma_a;
+//				float IOR;
+//				TranslucentData_t* dat = (TranslucentData_t*)state.userdata;
+//				sigma_a = dat->sig_a;
+//				sigma_s = dat->sig_s;
+//				IOR = dat->IOR;
+//				float g = 0.f;
+//				
+//				float sig_a_ = sigma_a.col2bri();
+//				float sig_s_ = sigma_s.col2bri();
+//				float sig_t_ = sig_a_ + (1.f-g)*sig_s_;
+//				float sig_t_1 = 1.f/sig_t_;
+//				
+//				//Halton hal2(7);
+//				//hal2.setStart(curr);
+//				
+//				//std::cout << "random seed " << curr << std::endl;
+//				
+//				// if photon intersect with SSS material, get the refract direction and continue to trace this photon.
+//				if( refract(hit->N, wi, wo, IOR) )
+//				{
+//					inCount++;
+//					const object3d_t* refObj = hit->object;
+//					bool refracOut = false;
+//					bool isStored = false;
+//					
+//					
+//					// get the refrace try
+//					float sc1 = ourRandom();//hal2.getNext(); 
+//					float sc2,sc3;
+//					//float scatteDist = -1.f*log(1-sc1)*sig_t_1/sssScale;
+//					float scatteDist = 1.f/(sig_t_1*sssScale);
+//					vector3d_t sdir = wo;
+//					ray.from = hit->P;
+//					ray.dir = wo;
+//					ray.tmin = MIN_RAYDIST/sssScale;
+//					ray.tmax = scatteDist;
+//					
+//					
+//					point3d_t scattePt = ray.from + scatteDist*ray.dir;
+//					float cosWo = ray.dir*(-1.f*hit->N);
+//					photon_t np(wi, hit->P, pcol);
+//					np.hitNormal = hit->N;
+//					np.sourcePos = scattePt;
+//					np.sourceDepth = cosWo*scatteDist;
+//					
+//					//std::cout << "cosWo = " << cosWo << " scatterDist = " << scatteDist << "  depth = " << np.sourceDepth << std::endl;
+//					
+//					if(refObj)
+//					{
+//						//std::cout << curr <<" bounces:" << nBounces << std::endl;
+//						std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.find(refObj);
+//						if(it!=SSSMaps.end()){
+//							// exist SSSMap for this object
+//							SSSMaps[refObj]->pushPhoton(np);
+//							SSSMaps[refObj]->setNumPaths(curr);
+//						}
+//						else {
+//							// need create a new SSSMap for this object
+//							//std::cout << "new translucent is " << bsdfs << "   " << hitObj << std::endl;
+//							photonMap_t* sssMap_t = new photonMap_t();
+//							sssMap_t->pushPhoton(np);
+//							sssMap_t->setNumPaths(curr);
+//							SSSMaps[refObj] = sssMap_t;
+//						}
+//					} 
+//					
+//					//std::cout << "first refracted = " << curr << "  wi = " << wi << "  N=" << hit->N << " wo=" << wo << "   pcol=" << pcol << std::endl;
+//					
+//					
+//					/*int scatNum = 0;
+//					 
+//					 while (!(refracOut = scene->intersect(ray, *hit2)))
+//					 {
+//					 //std::cout << "ray = " << curr << "  ray.dir = " << ray.dir << "  from=" << ray.from << "  scatteDist=" << ray.tmax << std::endl;
+//					 // compute scatter point
+//					 point3d_t scattePt = ray.from + scatteDist*ray.dir;
+//					 pcol_t = pcol;
+//					 pcol *= fExp(-1*sig_t_*scatteDist*sssScale); // power attuation
+//					 
+//					 if (pcol.energy() < 1e-6) {
+//					 break;
+//					 }
+//					 
+//					 // roulette whether scatter or absorb
+//					 float s = ourRandom();//hal2.getNext();
+//					 if (  s < sig_a_*sig_t_1 ) {
+//					 // absorbed, then break
+//					 //std::cout << "absorbed" << std::endl;
+//					 absorbCount++;
+//					 break;
+//					 }
+//					 else 
+//					 {
+//					 // scattered
+//					 // store photon
+//					 //std::cout << "scattered " << s << " " <<sig_a_*sig_t_1 << std::endl;
+//					 if (!isStored) {
+//					 // store photon here
+//					 //photon_t np(ray.dir, scattePt, pcol);
+//					 
+//					 float cosWo = ray.dir*(-1.f*hit->N);
+//					 photon_t np(wi, hit->P, pcol_t);
+//					 np.hitNormal = hit->N;
+//					 np.sourcePos = scattePt;
+//					 np.sourceDepth = cosWo*scatteDist;
+//					 
+//					 //std::cout << "cosWo = " << cosWo << " scatterDist = " << scatteDist << "  depth = " << np.sourceDepth << std::endl;
+//					 
+//					 if(refObj)
+//					 {
+//					 //std::cout << curr <<" bounces:" << nBounces << std::endl;
+//					 std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.find(refObj);
+//					 if(it!=SSSMaps.end()){
+//					 // exist SSSMap for this object
+//					 SSSMaps[refObj]->pushPhoton(np);
+//					 SSSMaps[refObj]->setNumPaths(curr);
+//					 }
+//					 else {
+//					 // need create a new SSSMap for this object
+//					 std::cout << "new translucent is " << bsdfs << "   " << refObj << std::endl;
+//					 photonMap_t* sssMap_t = new photonMap_t();
+//					 sssMap_t->pushPhoton(np);
+//					 sssMap_t->setNumPaths(curr);
+//					 SSSMaps[refObj] = sssMap_t;
+//					 }
+//					 }
+//					 isStored = true;
+//					 
+//					 //break;
+//					 }
+//					 
+//					 // get the scatter direction
+//					 sc2 = scrHalton(2, scatteCount);
+//					 sc3 = scrHalton(3, scatteCount);
+//					 sdir = SampleSphere(sc2,sc3);
+//					 
+//					 sc1 = ourRandom();//hal2.getNext();
+//					 scatteDist = -1.f*log(1-sc1)*sig_t_1/sssScale;
+//					 ray.from = scattePt;
+//					 ray.dir = sdir;
+//					 ray.tmin = MIN_RAYDIST/sssScale;
+//					 ray.tmax = scatteDist;
+//					 
+//					 scatteCount++;
+//					 scatNum++;
+//					 //if (scatNum >= nBounces) {
+//					 //	break;
+//					 //}
+//					 
+//					 }
+//					 }
+//					 
+//					 if (refracOut) {
+//					 
+//					 //std::cout << "ray = " << curr << "  ray.dir = " << ray.dir << "  from=" << ray.from << "  scatteDist=" << ray.tmax << std::endl;
+//					 
+//					 // refract out
+//					 // compute new direction and
+//					 std::swap(hit, hit2);
+//					 wi = -ray.dir;
+//					 material = hit->material;
+//					 
+//					 if (-1*hit->N*wi<=0) {
+//					 break;
+//					 }
+//					 
+//					 if( refract(-1*hit->N, wi, wo, 1.0f/IOR) )
+//					 {
+//					 //std::cout << "Out curr=" << curr << "  wi = " << wi << "  N=" << hit->N*-1 << " wo=" << wo << "  from=" << ray.from << "   pcol=" << pcol << std::endl;
+//					 
+//					 vector3d_t lastTransmit = hit->P - ray.from;
+//					 scatteDist = lastTransmit.length();
+//					 
+//					 pcol *= fExp(-1*sig_t_*scatteDist*sssScale);
+//					 ray.from = hit->P;
+//					 ray.dir = wo;
+//					 ray.tmin = MIN_RAYDIST/sssScale;
+//					 ray.tmax = -1.0;
+//					 ++nBounces;
+//					 //if (!isStored) {
+//					 //std::cout << "photon refacted out" << "  " << pcol << std::endl;
+//					 //}
+//					 isRefrectedOut = true;
+//					 break;//continue;
+//					 }
+//					 else
+//					 {
+//					 break;
+//					 }
+//					 }
+//					 else {
+//					 // not refracted out, just because absorbed or power is too small
+//					 break;
+//					 } */
+//				}
+//				
+//			}			
+			
 			
 			// need to break in the middle otherwise we scatter the photon and then discard it => redundant
 			if(nBounces == maxBounces) break;
@@ -736,7 +737,7 @@ bool photonIntegrator_t::preprocess()
 	{
 		Y_INFO << "SSSMap : " << SSSMaps.size() << yendl;
 		//success = createSSSMaps();
-		//success = createSSSMapsByPhotonTracing();
+		createSSSMapsByPhotonTracing();
 		std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.begin();
 		while (it!=SSSMaps.end()) {
 			it->second->updateTree();

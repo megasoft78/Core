@@ -781,8 +781,8 @@ bool mcIntegrator_t::createSSSMaps()
 		if(pcol.isBlack())
 		{
 			++curr;
-			done = (curr >= nPhotons) ? true : false;
-			
+			//done = (curr >= nPhotons) ? true : false;
+			done = (inCount >= nPhotons) ? true : false;
 			continue;
 		}
 		
@@ -884,7 +884,7 @@ bool mcIntegrator_t::createSSSMaps()
 	return true;
 }
 
-float mcIntegrator_t::sssScale = 100.f;
+float mcIntegrator_t::sssScale = 40.f;
 
 bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 {
@@ -932,8 +932,8 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 		s3 = scrHalton(3, curr);
 		s4 = scrHalton(4, curr);
 		//sL = RI_S(curr);
-		sL = float(curr) / float(nPhotons);
-		//sL = float(cMap.nPhotons()) / float(nPhotons);
+		//sL = float(curr) / float(nPhotons);
+		sL = float(inCount) / float(nPhotons);
 		int lightNum = lightPowerD->DSample(sL, &lightNumPdf);
 		if(lightNum >= numLights){ std::cout << "lightPDF sample error! "<<sL<<"/"<<lightNum<< "  " << curr << "/" << nPhotons << "\n"; delete lightPowerD; return false; }
 		
@@ -1002,6 +1002,8 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 				if( refract(hit->N, wi, wo, IOR) )
 				{
 					inCount++;
+					if (inCount % pbStep == 0) pb->update();
+					
 					const object3d_t* refObj = hit->object;
 					bool refracOut = false;
 					bool isStored = false;
@@ -1215,9 +1217,10 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 			
 		}
 		++curr;
-		if(curr % pbStep == 0) pb->update();
-		done = (curr >= nPhotons) ? true : false;
-		//done = (cMap.nPhotons() >= nPhotons) ? true : false;
+		//if(curr % pbStep == 0) pb->update();
+		//done = (curr >= nPhotons) ? true : false;
+		//if (inCount % pbStep == 0) pb->update();
+		done = (inCount >= nPhotons) ? true : false;
 	}
 	pb->done();
 	pb->setTag("SSS photon map built.");
@@ -2048,6 +2051,122 @@ color_t mcIntegrator_t::estimateSSSSingleScattering(renderState_t &state, const 
 	return singleS;
 }
 
+
+color_t mcIntegrator_t::estimateSSSSingleSImportantSampling(renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo) const
+{
+	//float stepSize = 0.1f/sssScale;
+	int	samples = 128;
+	std::vector<float> stepSizes;
+	color_t singleS(0.0f);
+	
+	float t0 = 1e10f, t1 = -1e10f;
+	//	std::cout << "entry point is " << sp.P << std::endl;
+	//	std::cout << "dir  is " << -1*wo << std::endl;
+	
+	// get the material infomation
+	void *o_udat = state.userdata;
+	unsigned char userdata[USER_DATA_SIZE];
+	state.userdata = (void *)userdata;
+	
+	BSDF_t bsdfs;
+	const material_t *material = sp.material;
+	material->initBSDF(state, sp, bsdfs);
+	
+	color_t sigma_s, sigma_a, sigma_t;
+	float IOR;
+	TranslucentData_t* dat = (TranslucentData_t*)state.userdata;
+	sigma_a = dat->sig_a;
+	sigma_s = dat->sig_s;
+	sigma_t = sigma_s + sigma_a;
+	IOR = dat->IOR;
+	
+	float Kr_o, Kt_o;
+	fresnel(wo, sp.N, IOR, Kr_o, Kt_o);	
+	
+	// get the refracted direction
+	vector3d_t refDir;
+	if (!refract(sp.N, wo, refDir, IOR)) {
+		return singleS;
+	}
+	
+	ray_t ray;
+	ray.from = sp.P;
+	ray.dir = refDir;
+	ray.tmin = MIN_RAYDIST;
+	ray.tmax = -1;
+	
+	surfacePoint_t hit;
+	
+	if (!scene->intersect(ray, hit)) {
+		return singleS;
+	}
+	
+	float badDist = (hit.P-sp.P).length();
+	
+	bool ismeetBadFace = false;
+	while ( hit.N * refDir < 0 )
+	{
+		ismeetBadFace = true;
+		std::cout << "not out " << hit.P << std::endl;
+		ray.from = hit.P;
+		ray.tmin = MIN_RAYDIST;
+		ray.tmax = -1;
+		if (!scene->intersect(ray, hit)) {
+			return singleS;
+		}
+	}
+	if(ismeetBadFace){
+		std::cout << " bad dist = " << badDist << "  new dist = " << (hit.P-sp.P).length() << std::endl;
+		std::cout << std::endl;
+	}
+	
+	// get the light transmit distance
+	t0 = 0;
+	t1 = (hit.P-sp.P).length();
+	float dist = (t1-t0);
+	//important sampling
+	float sigT = sigma_t.energy();
+	float range = 1.f - exp(-1*dist*sigT);
+	//std::cout << "range = " << range << std::endl;
+	float lastSamplePos = 0.0f, currSamplePos;
+	for (int i=1; i<=samples; i++) {
+		currSamplePos = -1.f*log(1-range*(float)i/(float)samples)/sigT;
+		stepSizes.push_back(currSamplePos - lastSamplePos);
+		lastSamplePos = currSamplePos;
+	}
+	
+	float pos = t0 - (*state.prng)()*stepSizes[0];
+	//int samples = dist/stepSize + 1;
+	float currentStep = stepSizes[0];
+	
+	color_t trTmp(1.f);
+	color_t stepTau(0.f); 
+	
+	for (int stepSample = 0; stepSample < samples; stepSample++)
+	{
+		currentStep = stepSizes[stepSample];
+		
+		ray_t stepRay(sp.P + (ray.dir * pos), ray.dir, 0, currentStep, 0);
+		
+		stepTau += sigma_t*currentStep*sssScale;
+		
+		trTmp = colorExp(-1*stepTau);
+		
+		//std::cout << "\t scatter point is " << stepRay.from << std::endl;
+		
+		singleS += trTmp * getTranslucentInScatter(state, stepRay, currentStep) * sigma_s * currentStep * Kt_o * sssScale;
+		
+		pos += currentStep;
+	}
+	//	std::cout << "refracted dir  is " << refDir << std::endl;
+	//	std::cout << "exit point is " << hit.P << std::endl;
+	//	std::cout << "the length of ray is " << t1-t0 << std::endl << std::endl;
+	
+	// restore old render state data
+	state.userdata = o_udat;
+	
+	return singleS;
+}
 
 color_t mcIntegrator_t::getTranslucentInScatter(renderState_t& state, ray_t& stepRay, float currentStep) const
 {	
