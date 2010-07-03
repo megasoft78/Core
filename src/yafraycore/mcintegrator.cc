@@ -884,7 +884,7 @@ bool mcIntegrator_t::createSSSMaps()
 	return true;
 }
 
-float mcIntegrator_t::sssScale = 40.f;
+float mcIntegrator_t::sssScale = 200.f;
 
 bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 {
@@ -1869,17 +1869,18 @@ color_t RdQdRm(const photon_t& inPhoton, const surfacePoint_t &sp, const vector3
 	//result = rm*Li*cosWiN*Kt_i*Kt_o*M_1_PI;
 	
 	if (gamma <= 0.5*M_PI && gamma >=0) {
-		result += 2*M_1_PI*(0.5*M_PI-gamma)*rd*Li*cosWiN*Kt_i*Kt_o;
-		result += 2*M_1_PI*gamma*qd*Li*cosWiN*Kt_i*Kt_o;
+		result += 2*M_1_PI*(0.5*M_PI-gamma)*rd;
+		result += 2*M_1_PI*gamma*qd;
 	}
 	else if ( gamma > 0.5*M_PI && gamma <= M_PI ) {
-		result += 2*M_1_PI*(M_PI - gamma)*qd*Li*cosWiN*Kt_i*Kt_o;
-		result += 2*M_1_PI*(gamma - 0.5*M_PI)*rm*Li*cosWiN*Kt_i*Kt_o;
+		result += 2*M_1_PI*(M_PI - gamma)*qd;
+		result += 2*M_1_PI*(gamma - 0.5*M_PI)*rm;
 	}
 	else {
-		result += rd*Li*cosWiN*Kt_i*Kt_o;
+		result += rd;
 	}
 	
+	result = result*Li*cosWiN*Kt_i*Kt_o;
 	return result;
 }
 
@@ -1956,6 +1957,10 @@ color_t mcIntegrator_t::estimateSSSSingleScattering(renderState_t &state, const 
 	float stepSize = 0.1f/sssScale;
 	color_t singleS(0.0f);
 	
+	if (wo*sp.N < 0) {
+		return singleS;
+	}
+	
 	float t0 = 1e10f, t1 = -1e10f;
 //	std::cout << "entry point is " << sp.P << std::endl;
 //	std::cout << "dir  is " << -1*wo << std::endl;
@@ -2005,7 +2010,7 @@ color_t mcIntegrator_t::estimateSSSSingleScattering(renderState_t &state, const 
 	while ( hit.N * refDir < 0 )
 	{
 		ismeetBadFace = true;
-		std::cout << "not out " << hit.P << std::endl;
+		//std::cout << "not out " << hit.P << std::endl;
 		ray.from = hit.P;
 		ray.tmin = MIN_RAYDIST;
 		ray.tmax = -1;
@@ -2013,14 +2018,14 @@ color_t mcIntegrator_t::estimateSSSSingleScattering(renderState_t &state, const 
 			return singleS;
 		}
 	}
-	if(ismeetBadFace){
-		std::cout << " bad dist = " << badDist << "  new dist = " << (hit.P-sp.P).length() << std::endl;
-		std::cout << std::endl;
-	}
+//	if(ismeetBadFace){
+//		std::cout << " bad dist = " << badDist << "  new dist = " << (hit.P-sp.P).length() << std::endl;
+//		std::cout << std::endl;
+//	}
 	t0 = 0;
 	t1 = (hit.P-sp.P).length();
 	float dist = (t1-t0);			
-	float pos = t0 - (*state.prng)()*stepSize;
+	float pos = t0 + (*state.prng)()*stepSize;
 	int samples = dist/stepSize + 1;
 	float currentStep = stepSize;
 	int stepLength = 1;
@@ -2036,17 +2041,34 @@ color_t mcIntegrator_t::estimateSSSSingleScattering(renderState_t &state, const 
 		trTmp = colorExp(-1*stepTau);
 		
 		//std::cout << "\t scatter point is " << stepRay.from << std::endl;
+		//std::cout << "trTmp is " << trTmp << std::endl;
 		
-		singleS += trTmp * getTranslucentInScatter(state, stepRay, currentStep) * sigma_s * currentStep * Kt_o * sssScale;
+		color_t radiance = getTranslucentInScatter(state, stepRay, currentStep);
+		//if ( state.pixelNumber == 489949 )
+		//	std::cout << "radiance is " << radiance << std::endl;
+		
+		singleS += trTmp * radiance * sigma_s * currentStep * Kt_o * sssScale;
 		
 		pos += currentStep;
+		if(pos - t0 >= dist)
+			break;
 	}
+	//singleS += 0.001;
+	//if (singleS.energy() > 1) {
+	//if ( state.pixelNumber == 489949 )
+	//{
+	//	std::cout << " index = " << state.pixelNumber << std::endl;
+	//	std::cout << "singleS is " << singleS << " stepTau = " << stepTau << "    dist = " << dist << std::endl << std::endl;
+	//}
+	//}
+	//std::cout << "singleS is " << singleS << std::endl << std::endl;
 //	std::cout << "refracted dir  is " << refDir << std::endl;
 //	std::cout << "exit point is " << hit.P << std::endl;
 //	std::cout << "the length of ray is " << t1-t0 << std::endl << std::endl;
 	
 	// restore old render state data
 	state.userdata = o_udat;
+	
 	
 	return singleS;
 }
@@ -2055,9 +2077,13 @@ color_t mcIntegrator_t::estimateSSSSingleScattering(renderState_t &state, const 
 color_t mcIntegrator_t::estimateSSSSingleSImportantSampling(renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo) const
 {
 	//float stepSize = 0.1f/sssScale;
-	int	samples = 128;
+	int	samples = 64;
 	std::vector<float> stepSizes;
 	color_t singleS(0.0f);
+	
+	if (wo*sp.N < 0) {
+		return singleS;
+	}
 	
 	float t0 = 1e10f, t1 = -1e10f;
 	//	std::cout << "entry point is " << sp.P << std::endl;
@@ -2107,7 +2133,7 @@ color_t mcIntegrator_t::estimateSSSSingleSImportantSampling(renderState_t &state
 	while ( hit.N * refDir < 0 )
 	{
 		ismeetBadFace = true;
-		std::cout << "not out " << hit.P << std::endl;
+		//std::cout << "not out " << hit.P << std::endl;
 		ray.from = hit.P;
 		ray.tmin = MIN_RAYDIST;
 		ray.tmax = -1;
@@ -2115,10 +2141,10 @@ color_t mcIntegrator_t::estimateSSSSingleSImportantSampling(renderState_t &state
 			return singleS;
 		}
 	}
-	if(ismeetBadFace){
-		std::cout << " bad dist = " << badDist << "  new dist = " << (hit.P-sp.P).length() << std::endl;
-		std::cout << std::endl;
-	}
+	//if(ismeetBadFace){
+	//	std::cout << " bad dist = " << badDist << "  new dist = " << (hit.P-sp.P).length() << std::endl;
+	//	std::cout << std::endl;
+	//}
 	
 	// get the light transmit distance
 	t0 = 0;
@@ -2135,7 +2161,7 @@ color_t mcIntegrator_t::estimateSSSSingleSImportantSampling(renderState_t &state
 		lastSamplePos = currSamplePos;
 	}
 	
-	float pos = t0 - (*state.prng)()*stepSizes[0];
+	float pos = t0 + (*state.prng)()*stepSizes[0];
 	//int samples = dist/stepSize + 1;
 	float currentStep = stepSizes[0];
 	
@@ -2157,6 +2183,9 @@ color_t mcIntegrator_t::estimateSSSSingleSImportantSampling(renderState_t &state
 		singleS += trTmp * getTranslucentInScatter(state, stepRay, currentStep) * sigma_s * currentStep * Kt_o * sssScale;
 		
 		pos += currentStep;
+		
+		if(pos - t0 >= dist)
+			break;
 	}
 	//	std::cout << "refracted dir  is " << refDir << std::endl;
 	//	std::cout << "exit point is " << hit.P << std::endl;
@@ -2243,7 +2272,7 @@ color_t mcIntegrator_t::getTranslucentInScatter(renderState_t& state, ray_t& ste
 					
 					//std::cout << "\t\t tau = " << lightstepTau << " and light tau = " << lightTr << std::endl;//
 					
-					inScatter += (lightTr * lcol * cosWi * Kt_i) * 4 * M_PI;
+					inScatter += (lightTr * lcol * Kt_i) * 4 * M_PI * phaseFunc(lightRay.dir, -1*stepRay.dir);;
 					
 					//std::cout << "\t\t lcol = " << lcol << " contribute= " << (lightTr * lcol * Kt_i) << std::endl;
 				}
@@ -2252,6 +2281,7 @@ color_t mcIntegrator_t::getTranslucentInScatter(renderState_t& state, ray_t& ste
 		
 		else // area light and suchlike
 		{
+			//std::cout << "area light " << std::endl;
 			int n = (*l)->nSamples() >> 2; // samples / 4
 			if (n < 1) n = 1;
 			float iN = 1.f / (float)n; // inverse of n
@@ -2267,6 +2297,8 @@ color_t mcIntegrator_t::getTranslucentInScatter(renderState_t& state, ray_t& ste
 				
 				if((*l)->illumSample(sp, ls, lightRay))
 				{
+					//if ( state.pixelNumber == 489949 )
+					//	std::cout << "\t sample " << i << " lightRay.tmax = " << lightRay.tmax << std::endl;
 					// get the exit point;
 					outRay.from = sp.P;
 					outRay.dir = lightRay.dir;
@@ -2280,6 +2312,10 @@ color_t mcIntegrator_t::getTranslucentInScatter(renderState_t& state, ray_t& ste
 					const material_t *material = outHit.material;
 					material->initBSDF(state, outHit, bsdfs);
 					
+					if (!(bsdfs & BSDF_TRANSLUCENT)) {
+						continue;
+					}
+					
 					TranslucentData_t* dat = (TranslucentData_t*)state.userdata;
 					sigma_a = dat->sig_a;
 					sigma_s = dat->sig_s;
@@ -2290,6 +2326,8 @@ color_t mcIntegrator_t::getTranslucentInScatter(renderState_t& state, ray_t& ste
 					point3d_t exitP = outHit.P;
 					float cosWi = fabs(outHit.N*outRay.dir);
 					float dist = (exitP - sp.P).length()*cosWi/sqrtf((1.f-(1.f/(float)IOR)*(1.f/(float)IOR))*(1-cosWi*cosWi));
+					//if ( state.pixelNumber == 489949 )
+					//	std::cout << "\t sigma_t="<< sigma_t << "   IOR=" << IOR << "  cosWi="<<cosWi << "   " << (1.f-(1.f/(float)IOR)*(1.f/(float)IOR)) << std::endl;
 					
 					float Kr_i, Kt_i;
 					fresnel(outRay.dir, outHit.N, IOR, Kr_i, Kt_i);
@@ -2297,27 +2335,41 @@ color_t mcIntegrator_t::getTranslucentInScatter(renderState_t& state, ray_t& ste
 					// ...shadowed...
 					lightRay.from = exitP;
 					lightRay.tmin = YAF_SHADOW_BIAS; // < better add some _smart_ self-bias value...this is bad.
+					lightRay.tmax -= (exitP - sp.P).length();
 					if (lightRay.tmax < 0.f) lightRay.tmax = 1e10; // infinitely distant light
 					bool shadowed = scene->isShadowed(state, lightRay);
+					
+					//std::cout << "sample " << i << " isshadowed = " << shadowed << std::endl;
+					//if ( state.pixelNumber == 489949 )
+					//	std::cout << "dist = " << dist << "   kt_i=" << Kt_i << std::endl;
+					
 					if(!shadowed) {
-						ccol += ls.col * cosWi / ls.pdf;
+						ccol += ls.col / ls.pdf;
 						
 						color_t lightstepTau = sigma_t * dist * sssScale;
 						
-						lightTr += colorExp(-1*lightstepTau)*Kt_i;
+						lightTr += colorExp(-1*lightstepTau)*Kt_i*phaseFunc(lightRay.dir, -1*stepRay.dir);;
 					}
 				}
 			} // end of area light sample loop
 			
 			lightTr *= iN;
 			
+			//if ( state.pixelNumber == 489949 )
+			//	std::cout << "\t lightTr = " << lightTr << std::endl;
+			
 			ccol = ccol * iN;
+			//if ( state.pixelNumber == 489949 )
+			//	std::cout << "\t ccol = " << ccol << std::endl;
+			
 			inScatter += lightTr * ccol;
 		} // end of area lights loop
 		
 	}
 	
-	inScatter *= phaseFunc(lightRay.dir, -1*stepRay.dir);
+	//inScatter *= phaseFunc(lightRay.dir, -1*stepRay.dir);
+	
+	//inScatter *= 30.f;
 	
 	state.userdata = o_udat;
 	return inScatter;
@@ -2385,7 +2437,7 @@ color_t mcIntegrator_t::estimateSSSSingleScatteringPhotons(renderState_t &state,
 	while ( hit.N * refDir < 0 )
 	{
 		ismeetBadFace = true;
-		std::cout << "not out " << hit.P << std::endl;
+		//std::cout << "not out " << hit.P << std::endl;
 		ray.from = hit.P;
 		ray.tmin = MIN_RAYDIST;
 		ray.tmax = -1;
@@ -2393,20 +2445,20 @@ color_t mcIntegrator_t::estimateSSSSingleScatteringPhotons(renderState_t &state,
 			return singleS;
 		}
 	}
-	if(ismeetBadFace){
-		std::cout << " bad dist = " << badDist << "  new dist = " << (hit.P-sp.P).length() << std::endl;
-		std::cout << std::endl;
-	}
+//	if(ismeetBadFace){
+//		std::cout << " bad dist = " << badDist << "  new dist = " << (hit.P-sp.P).length() << std::endl;
+//		std::cout << std::endl;
+//	}
 	t0 = 0;
 	t1 = (hit.P-sp.P).length();
 	float dist = (t1-t0);			
-	float pos = t0 - (*state.prng)()*stepSize;
+	float pos = t0 + (*state.prng)()*stepSize;
 	int samples = dist/stepSize + 1;
 	float currentStep = stepSize;
 	int stepLength = 1;
 	color_t trTmp(1.f);
 	
-	float singleSRadius = 3.f / sssScale;
+	float singleSRadius = 4.f / sssScale;
 	
 	color_t stepTau(0.f); 
 	for (int stepSample = 0; stepSample < samples; stepSample += stepLength)
@@ -2459,6 +2511,9 @@ color_t mcIntegrator_t::estimateSSSSingleScatteringPhotons(renderState_t &state,
 		}			
 		
 		pos += currentStep;
+		
+		if(pos - t0 >= dist)
+			break;
 	}
 	//	std::cout << "refracted dir  is " << refDir << std::endl;
 	//	std::cout << "exit point is " << hit.P << std::endl;
@@ -2466,6 +2521,8 @@ color_t mcIntegrator_t::estimateSSSSingleScatteringPhotons(renderState_t &state,
 	
 	// restore old render state data
 	state.userdata = o_udat;
+	
+	singleS *= 30;
 	
 	return singleS;
 }
