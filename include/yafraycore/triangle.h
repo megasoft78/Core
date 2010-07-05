@@ -50,7 +50,9 @@ class YAFRAYCORE_EXPORT triangle_t
 		void setNormals(int a, int b, int c){ na=a, nb=b, nc=c; }
 		virtual void recNormal();
 
-	private:
+		void getVertices(point3d_t &p1, point3d_t &p2, point3d_t &p3) const;
+
+	protected:
 		int pa, pb, pc; //!< indices in point array, referenced in mesh.
 		int na, nb, nc; //!< indices in normal array, if mesh is smoothed.
 		const material_t* material;
