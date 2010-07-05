@@ -204,12 +204,43 @@ class YAFRAYCORE_EXPORT scene_t
 		
 		std::vector<light_t *> lights;
 		volumeIntegrator_t *volIntegrator;
+
+		struct objData_t
+		{
+			triangleObject_t *obj;
+			meshObject_t *mobj;
+			std::vector<point3d_t> points;
+			std::vector<normal_t> normals;
+			int type;
+		};
+
+		typedef std::map<objID_t, objData_t> objDataArray_t;
+
+		// TODO: this gives the user the ability to put the scene into an
+		// inconsistent state if he e.g insert points/normals which are not
+		// part of any triangle or if he insert a new objData_t with a
+		// material that is not in the materials list etc. To fix this while
+		// preserving the performance it would be better to create a visitor
+		// for the triangles in the scene.
+		objDataArray_t &getMeshes() {
+			return meshes;
+		}
 		
 	protected:
-
-		sceneGeometryState_t state;
+		
+		struct scState_t
+		{
+			std::list<sceneState> stack;
+			unsigned int changes;
+			objID_t nextFreeID;
+			objData_t *curObj;
+			triangle_t *curTri;
+			bool orco;
+			float smooth_angle;
+		} state;
+		
 		std::map<objID_t, object3d_t *> objects;
-		std::map<objID_t, objData_t> meshes;
+		objDataArray_t meshes;
         std::map< std::string, material_t * > materials;
 		std::vector<VolumeRegion *> volumes;
 		camera_t *camera;
