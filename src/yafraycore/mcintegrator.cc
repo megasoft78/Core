@@ -724,8 +724,8 @@ bool mcIntegrator_t::createSSSMaps()
 {
 	// init and compute light pdf etc.
 	ray_t ray;
-	int maxBounces = causDepth;
-	unsigned int nPhotons=nCausPhotons;
+	int maxBounces = this->nSSSDepth;
+	unsigned int nPhotons=this->nSSSPhotons;
 	int numLights = lights.size();
 	float lightNumPdf, lightPdf, s1, s2, s3, s4, s5, s6, s7, sL;
 	float fNumLights = (float)numLights;
@@ -884,14 +884,14 @@ bool mcIntegrator_t::createSSSMaps()
 	return true;
 }
 
-float mcIntegrator_t::sssScale = 200.f;
+float mcIntegrator_t::sssScale = 10.f;
 
 bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 {
 	// init and compute light pdf etc.
 	ray_t ray;
-	int maxBounces = causDepth;
-	unsigned int nPhotons=nCausPhotons;
+	int maxBounces = this->nSSSDepth;
+	unsigned int nPhotons=this->nSSSPhotons;
 	int numLights = lights.size();
 	float lightNumPdf, lightPdf, s1, s2, s3, s4, s5, s6, s7, sL;
 	float fNumLights = (float)numLights;
@@ -909,6 +909,7 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 	else pb = new ConsoleProgressBar_t(80);
 	
 	int pbStep;
+	Y_INFO << "SSS: shoot photons " << nPhotons << yendl;
 	Y_INFO << integratorName << ": Building SSS photon map by photon tracing..." << yendl;
 	pb->init(128);
 	pbStep = std::max(1U, nPhotons / 128);
@@ -1211,7 +1212,7 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 			
 			ray.from = hit->P;
 			ray.dir = wo;
-			ray.tmin = 0.001;
+			ray.tmin = MIN_RAYDIST;
 			ray.tmax = -1.0;
 			++nBounces;
 			
@@ -2077,7 +2078,7 @@ color_t mcIntegrator_t::estimateSSSSingleScattering(renderState_t &state, const 
 color_t mcIntegrator_t::estimateSSSSingleSImportantSampling(renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo) const
 {
 	//float stepSize = 0.1f/sssScale;
-	int	samples = 64;
+	int	samples = this->nSingleScatterSamples;
 	std::vector<float> stepSizes;
 	color_t singleS(0.0f);
 	
@@ -2153,7 +2154,14 @@ color_t mcIntegrator_t::estimateSSSSingleSImportantSampling(renderState_t &state
 	//important sampling
 	float sigT = sigma_t.energy();
 	float range = 1.f - exp(-1*dist*sigT);
-	//std::cout << "range = " << range << std::endl;
+	if (range == 1) {
+		range -= 1e-6;
+	}
+//	if (state.pixelNumber == 70280) {
+//		std::cout << "sigma_t = " << sigma_t << std::endl;
+//		std::cout << "dist = " << dist << std::endl;
+//		std::cout << "range = " << range << std::endl;
+//	}
 	float lastSamplePos = 0.0f, currSamplePos;
 	for (int i=1; i<=samples; i++) {
 		currSamplePos = -1.f*log(1-range*(float)i/(float)samples)/sigT;
@@ -2161,12 +2169,22 @@ color_t mcIntegrator_t::estimateSSSSingleSImportantSampling(renderState_t &state
 		lastSamplePos = currSamplePos;
 	}
 	
-	float pos = t0 + (*state.prng)()*stepSizes[0];
+	//std::cout << " dist = " << dist << std::endl;
+	
+	//float pos = t0 + (*state.prng)()*stepSizes[0];
+	float pos = t0 + 0.5*stepSizes[0];
+	
 	//int samples = dist/stepSize + 1;
 	float currentStep = stepSizes[0];
 	
 	color_t trTmp(1.f);
 	color_t stepTau(0.f); 
+	
+//	if ((state.pixelNumber == 223580) || (state.pixelNumber == 223600) )
+//	{
+//		std::cout << state.pixelNumber << std::endl;
+//		std::cout << "Normal = " << sp.N << std::endl;
+//	}
 	
 	for (int stepSample = 0; stepSample < samples; stepSample++)
 	{
@@ -2180,19 +2198,37 @@ color_t mcIntegrator_t::estimateSSSSingleSImportantSampling(renderState_t &state
 		
 		//std::cout << "\t scatter point is " << stepRay.from << std::endl;
 		
-		singleS += trTmp * getTranslucentInScatter(state, stepRay, currentStep) * sigma_s * currentStep * Kt_o * sssScale;
+		color_t inScatter = getTranslucentInScatter(state, stepRay, currentStep);
+		
+		singleS += trTmp * inScatter * sigma_s * currentStep * Kt_o * sssScale;
+		
+		//std::cout << state.pixelNumber << std::endl;
+//		if (state.pixelNumber == 70280) {
+//			std::cout << "trTmp = " << trTmp << "   inScatter = " << inScatter << "  currentStep == " << currentStep << "  kt_o = " << Kt_o << std::endl;
+//			std::cout << "singleS = " << singleS << std::endl;
+//		}
+//		else if (state.pixelNumber == 223600) {
+//			std::cout << "trTmp = " << trTmp << "   inScatter = " << inScatter << "  currentStep == " << currentStep << "  kt_o = " << Kt_o << std::endl;
+//			std::cout << "singleS = " << singleS << std::endl;
+//		}
 		
 		pos += currentStep;
 		
 		if(pos - t0 >= dist)
 			break;
 	}
+	//if ((state.pixelNumber == 70280) || (state.pixelNumber == 223600) )
+	//	std::cout << std::endl;
 	//	std::cout << "refracted dir  is " << refDir << std::endl;
 	//	std::cout << "exit point is " << hit.P << std::endl;
 	//	std::cout << "the length of ray is " << t1-t0 << std::endl << std::endl;
 	
 	// restore old render state data
 	state.userdata = o_udat;
+	
+//	if (state.pixelNumber == 70280) {
+//		singleS = color_t(1.0,0.0,0.0);
+//	}
 	
 	return singleS;
 }
@@ -2247,7 +2283,7 @@ color_t mcIntegrator_t::getTranslucentInScatter(renderState_t& state, ray_t& ste
 				
 				point3d_t exitP = outHit.P;
 				float cosWi = fabs(outHit.N*outRay.dir);
-				float dist = (exitP - sp.P).length()*cosWi/sqrtf((1.f-(1.f/(float)IOR)*(1.f/(float)IOR))*(1-cosWi*cosWi));
+				float dist = (exitP - sp.P).length();//*cosWi/sqrtf((1.f-(1.f/(float)IOR)*(1.f/(float)IOR))*(1-cosWi*cosWi));
 				
 				
 				float Kr_i, Kt_i;
@@ -2272,7 +2308,7 @@ color_t mcIntegrator_t::getTranslucentInScatter(renderState_t& state, ray_t& ste
 					
 					//std::cout << "\t\t tau = " << lightstepTau << " and light tau = " << lightTr << std::endl;//
 					
-					inScatter += (lightTr * lcol * Kt_i) * 4 * M_PI * phaseFunc(lightRay.dir, -1*stepRay.dir);;
+					inScatter += (lightTr * lcol * Kt_i) * phaseFunc(lightRay.dir, -1*stepRay.dir);;
 					
 					//std::cout << "\t\t lcol = " << lcol << " contribute= " << (lightTr * lcol * Kt_i) << std::endl;
 				}
@@ -2325,7 +2361,7 @@ color_t mcIntegrator_t::getTranslucentInScatter(renderState_t& state, ray_t& ste
 					
 					point3d_t exitP = outHit.P;
 					float cosWi = fabs(outHit.N*outRay.dir);
-					float dist = (exitP - sp.P).length()*cosWi/sqrtf((1.f-(1.f/(float)IOR)*(1.f/(float)IOR))*(1-cosWi*cosWi));
+					float dist = (exitP - sp.P).length();//*cosWi/sqrtf((1.f-(1.f/(float)IOR)*(1.f/(float)IOR))*(1-cosWi*cosWi));
 					//if ( state.pixelNumber == 489949 )
 					//	std::cout << "\t sigma_t="<< sigma_t << "   IOR=" << IOR << "  cosWi="<<cosWi << "   " << (1.f-(1.f/(float)IOR)*(1.f/(float)IOR)) << std::endl;
 					

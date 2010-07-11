@@ -735,7 +735,7 @@ bool photonIntegrator_t::preprocess()
 	}
 	
 	{
-		Y_INFO << "SSSMap : " << SSSMaps.size() << yendl;
+//		Y_INFO << "SSSMap : " << SSSMaps.size() << yendl;
 		//success = createSSSMaps();
 		createSSSMapsByPhotonTracing();
 		std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.begin();
@@ -1102,6 +1102,7 @@ colorA_t photonIntegrator_t::integrate(renderState_t &state, diffRay_t &ray) con
 			col += estimateSSSMaps(state,sp,wo);
 			//col += estimateSSSSingleScattering(state,sp,wo);
 			//col += estimateSSSSingleScatteringPhotons(state,sp,wo);
+			col += estimateSSSSingleSImportantSampling(state,sp,wo);
 		}
 		
 		recursiveRaytrace(state, ray, bsdfs, sp, wo, col, alpha);
@@ -1138,6 +1139,10 @@ integrator_t* photonIntegrator_t::factory(paraMap_t &params, renderEnvironment_t
 	float cRad=0.01;
 	float gatherDist=0.2;
 	
+	
+	int sssdepth = 10, sssPhotons = 200000;
+	int singleSSamples = 128;
+	
 	params.getParam("transpShad", transpShad);
 	params.getParam("shadowDepth", shadowDepth);
 	params.getParam("raydepth", raydepth);
@@ -1156,6 +1161,10 @@ integrator_t* photonIntegrator_t::factory(paraMap_t &params, renderEnvironment_t
 	params.getParam("fg_min_pathlen", gatherDist);
 	params.getParam("show_map", show_map);
 	
+	params.getParam("sssPhotons", sssPhotons);
+	params.getParam("sssDepth", sssdepth);
+	params.getParam("singleScatterSamples", singleSSamples);
+	
 	photonIntegrator_t* ite = new photonIntegrator_t(numPhotons, numCPhotons, transpShad, shadowDepth, dsRad, cRad);
 	ite->rDepth = raydepth;
 	ite->nDiffuseSearch = search;
@@ -1167,6 +1176,10 @@ integrator_t* photonIntegrator_t::factory(paraMap_t &params, renderEnvironment_t
 	ite->gatherBounces = fgBounces;
 	ite->showMap = show_map;
 	ite->gatherDist = gatherDist;
+	
+	ite->nSSSPhotons = sssPhotons;
+	ite->nSSSDepth = sssdepth;
+	ite->nSingleScatterSamples = singleSSamples;
 	return ite;
 }
 
