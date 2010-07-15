@@ -736,14 +736,14 @@ bool photonIntegrator_t::preprocess()
 	
 	{
 //		Y_INFO << "SSSMap : " << SSSMaps.size() << yendl;
-		//success = createSSSMaps();
-		createSSSMapsByPhotonTracing();
-		std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.begin();
-		while (it!=SSSMaps.end()) {
-			it->second->updateTree();
-			Y_INFO << "SSS:" << it->second->nPhotons() << " photons. " << yendl;
-			it++;
-		}
+		//createSSSMaps();
+//		createSSSMapsByPhotonTracing();
+//		std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.begin();
+//		while (it!=SSSMaps.end()) {
+//			it->second->updateTree();
+//			Y_INFO << "SSS:" << it->second->nPhotons() << " photons. " << yendl;
+//			it++;
+//		}
 	}
 
 	if(diffuseMap.nPhotons() < 50)
@@ -1098,11 +1098,11 @@ colorA_t photonIntegrator_t::integrate(renderState_t &state, diffRay_t &ray) con
 		
 		if(bsdfs & BSDF_TRANSLUCENT) 
 		{
-			//col += estimateAllDirectLight(state, sp, wo);
+			col += estimateAllDirectLight(state, sp, wo);
 			col += estimateSSSMaps(state,sp,wo);
 			//col += estimateSSSSingleScattering(state,sp,wo);
 			//col += estimateSSSSingleScatteringPhotons(state,sp,wo);
-			col += estimateSSSSingleSImportantSampling(state,sp,wo);
+			//col += estimateSSSSingleSImportantSampling(state,sp,wo);
 		}
 		
 		recursiveRaytrace(state, ray, bsdfs, sp, wo, col, alpha);
@@ -1180,6 +1180,7 @@ integrator_t* photonIntegrator_t::factory(paraMap_t &params, renderEnvironment_t
 	ite->nSSSPhotons = sssPhotons;
 	ite->nSSSDepth = sssdepth;
 	ite->nSingleScatterSamples = singleSSamples;
+	ite->isDirectLight = false;
 	return ite;
 }
 

@@ -884,7 +884,7 @@ bool mcIntegrator_t::createSSSMaps()
 	return true;
 }
 
-float mcIntegrator_t::sssScale = 10.f;
+float mcIntegrator_t::sssScale = 40.f;
 
 bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 {
@@ -1022,7 +1022,7 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 					ray.tmax = scatteDist;
 					
 					
-					/*point3d_t scattePt = ray.from + scatteDist*ray.dir;
+					point3d_t scattePt = ray.from + scatteDist*ray.dir;
 					float cosWo = ray.dir*(-1.f*hit->N);
 					photon_t np(wi, hit->P, pcol);
 					np.hitNormal = hit->N;
@@ -1048,7 +1048,7 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 							sssMap_t->setNumPaths(curr);
 							SSSMaps[refObj] = sssMap_t;
 						}
-					}*/ 
+					}
 					
 					//std::cout << "first refracted = " << curr << "  wi = " << wi << "  N=" << hit->N << " wo=" << wo << "   pcol=" << pcol << std::endl;
 					
@@ -1080,40 +1080,40 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 							// scattered
 							// store photon
 							//std::cout << "scattered " << s << " " <<sig_a_*sig_t_1 << std::endl;
-							if (!isStored) {
-								// store photon here
-								//photon_t np(ray.dir, scattePt, pcol);
-								
-								float cosWo = ray.dir*(-1.f*hit->N);
-								photon_t np(wi, hit->P, pcol_t);
-								np.hitNormal = hit->N;
-								np.sourcePos = scattePt;
-								np.sourceDepth = cosWo*scatteDist;
-								
-								//std::cout << "cosWo = " << cosWo << " scatterDist = " << scatteDist << "  depth = " << np.sourceDepth << std::endl;
-								
-								if(refObj)
-								{
-									//std::cout << curr <<" bounces:" << nBounces << std::endl;
-									std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.find(refObj);
-									if(it!=SSSMaps.end()){
-										// exist SSSMap for this object
-										SSSMaps[refObj]->pushPhoton(np);
-										SSSMaps[refObj]->setNumPaths(curr);
-									}
-									else {
-										// need create a new SSSMap for this object
-										//std::cout << "new translucent is " << bsdfs << "   " << hitObj << std::endl;
-										photonMap_t* sssMap_t = new photonMap_t();
-										sssMap_t->pushPhoton(np);
-										sssMap_t->setNumPaths(curr);
-										SSSMaps[refObj] = sssMap_t;
-									}
-								}
-								isStored = true;
-								
-								//break;
-							}
+							//if (!isStored) {
+//								// store photon here
+//								//photon_t np(ray.dir, scattePt, pcol);
+//								
+//								float cosWo = ray.dir*(-1.f*hit->N);
+//								photon_t np(wi, hit->P, pcol_t);
+//								np.hitNormal = hit->N;
+//								np.sourcePos = scattePt;
+//								np.sourceDepth = cosWo*scatteDist;
+//								
+//								//std::cout << "cosWo = " << cosWo << " scatterDist = " << scatteDist << "  depth = " << np.sourceDepth << std::endl;
+//								
+//								if(refObj)
+//								{
+//									//std::cout << curr <<" bounces:" << nBounces << std::endl;
+//									std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.find(refObj);
+//									if(it!=SSSMaps.end()){
+//										// exist SSSMap for this object
+//										SSSMaps[refObj]->pushPhoton(np);
+//										SSSMaps[refObj]->setNumPaths(curr);
+//									}
+//									else {
+//										// need create a new SSSMap for this object
+//										//std::cout << "new translucent is " << bsdfs << "   " << hitObj << std::endl;
+//										photonMap_t* sssMap_t = new photonMap_t();
+//										sssMap_t->pushPhoton(np);
+//										sssMap_t->setNumPaths(curr);
+//										SSSMaps[refObj] = sssMap_t;
+//									}
+//								}
+//								isStored = true;
+//								
+//								//break;
+//							}
 							
 							// get the scatter direction
 							sc2 = scrHalton(2, scatteCount);
@@ -1167,7 +1167,8 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 							//std::cout << "photon refacted out" << "  " << pcol << std::endl;
 							//}
 							isRefrectedOut = true;
-							break;//continue;
+							//break;
+							continue;
 						}
 						else
 						{
@@ -1183,6 +1184,10 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 					// not refracted in to object
 					break;
 				}
+			}
+			
+			if (isDirectLight) {
+				break;
 			}
 			
 			// need to break in the middle otherwise we scatter the photon and then discard it => redundant

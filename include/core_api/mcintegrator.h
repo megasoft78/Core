@@ -110,6 +110,7 @@ class YAFRAYCORE_EXPORT mcIntegrator_t: public tiledIntegrator_t
 		unsigned int nSSSPhotons;
 		int nSSSDepth;
 		unsigned int nSingleScatterSamples;
+		bool isDirectLight;
 		std::map<const object3d_t*, photonMap_t*>	SSSMaps; //! Container of SSS photons for different objects
 	public:
 		static float sssScale;

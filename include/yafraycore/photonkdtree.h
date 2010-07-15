@@ -388,7 +388,7 @@ void photonKdTree<T>::recursiveLookup(const point3d_t &p, const LookupProc &proc
 			
 			float aperture = sinAng*diagDis/ptocDis;
 			
-			if (ptocDis > (diagDis) && aperture <= threshold) {
+			if (threshold*ptocDis > (diagDis) && aperture <= threshold) {
 				array.push_back(currNode->data);
 				return;
 			}
