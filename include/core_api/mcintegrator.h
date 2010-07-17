@@ -119,9 +119,12 @@ class YAFRAYCORE_EXPORT mcIntegrator_t: public tiledIntegrator_t
 
 struct TranslucentData_t
 {
+	color_t difC;
 	color_t sig_s;
 	color_t sig_a;
 	float	IOR;
+	
+	void *stack;
 };
 
 __END_YAFRAY

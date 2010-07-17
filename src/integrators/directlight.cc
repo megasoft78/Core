@@ -168,6 +168,7 @@ integrator_t* directLighting_t::factory(paraMap_t &params, renderEnvironment_t &
 	double cRad = 0.25;
 	double AO_dist = 1.0;
 	color_t AO_col(1.f);
+	float sScale = 40.f;
 	
 	params.getParam("raydepth", raydepth);
 	params.getParam("transpShad", transpShad);
@@ -186,6 +187,7 @@ integrator_t* directLighting_t::factory(paraMap_t &params, renderEnvironment_t &
 	params.getParam("sssPhotons", sssPhotons);
 	params.getParam("sssDepth", sssdepth);
 	params.getParam("singleScatterSamples", singleSSamples);
+	params.getParam("sssScale", sScale);
 	
 	directLighting_t *inte = new directLighting_t(transpShad, shadowDepth, raydepth);
 	// caustic settings
@@ -204,6 +206,7 @@ integrator_t* directLighting_t::factory(paraMap_t &params, renderEnvironment_t &
 	inte->nSSSDepth = sssdepth;
 	inte->nSingleScatterSamples = singleSSamples;
 	inte->isDirectLight = true;
+	inte->sssScale = sScale;
 	return inte;
 }
 

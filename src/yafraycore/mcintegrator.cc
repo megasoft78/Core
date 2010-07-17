@@ -869,7 +869,6 @@ bool mcIntegrator_t::createSSSMaps()
 			ray.tmin = 0.001;
 			ray.tmax = -1.0;
 			++nBounces;
-			
 		}
 		++curr;
 		if(curr % pbStep == 0) pb->update();
@@ -884,7 +883,7 @@ bool mcIntegrator_t::createSSSMaps()
 	return true;
 }
 
-float mcIntegrator_t::sssScale = 40.f;
+float mcIntegrator_t::sssScale = 10.f;
 
 bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 {
@@ -981,9 +980,10 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 					std::cout << "In  curr=" << curr << "  wi = " << wi << "  N=" << hit->N << " from=" << ray.from << "   pcol=" << pcol << std::endl;
 					isRefrectedOut = false;
 				}*/
-				color_t sigma_s, sigma_a;
+				color_t diffuseC, sigma_s, sigma_a;
 				float IOR;
 				TranslucentData_t* dat = (TranslucentData_t*)state.userdata;
+				diffuseC = dat->difC;
 				sigma_a = dat->sig_a;
 				sigma_s = dat->sig_s;
 				IOR = dat->IOR;
@@ -1024,6 +1024,7 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 					
 					point3d_t scattePt = ray.from + scatteDist*ray.dir;
 					float cosWo = ray.dir*(-1.f*hit->N);
+					pcol *= diffuseC;
 					photon_t np(wi, hit->P, pcol);
 					np.hitNormal = hit->N;
 					np.sourcePos = scattePt;
@@ -2408,7 +2409,7 @@ color_t mcIntegrator_t::getTranslucentInScatter(renderState_t& state, ray_t& ste
 		
 	}
 	
-	//inScatter *= phaseFunc(lightRay.dir, -1*stepRay.dir);
+	inScatter *= phaseFunc(lightRay.dir, -1*stepRay.dir);
 	
 	//inScatter *= 30.f;
 	
@@ -2563,7 +2564,7 @@ color_t mcIntegrator_t::estimateSSSSingleScatteringPhotons(renderState_t &state,
 	// restore old render state data
 	state.userdata = o_udat;
 	
-	singleS *= 30;
+	//singleS *= 30;
 	
 	return singleS;
 }
