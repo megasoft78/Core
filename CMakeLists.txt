@@ -23,6 +23,7 @@ option(EMBED_FONT_QT "Embed font for QT GUI (usefull for some buggy QT installat
 option(WITH_TESTS "Enable building test applications for various components of Yafaray" OFF)
 option(TESTS_ONLY "Build only the test applications, not the rest of the core (implies WITH_TESTS)" OFF)
 option(WITH_OPENCL "Enable the use of OpenCL and GPU accelerated rendering where avaialble" OFF)
+option(WITH_GUI "Enable building the QT GUI " OFF)
 
 ###### Packages and Definitions #########
 
@@ -81,32 +82,29 @@ endif(LIBXML2_FOUND)
 
 find_package(Threads REQUIRED)
 
-# Find optional libs
-if(CMAKE_HAVE_PTHREAD_H)
-	if(WIN32)
-		if(WITH_Pthreads)
-			add_definitions(-DHAVE_PTHREAD)
-			message("Using Posix Threads: yes")
-		else(WITH_Pthreads)
-			message("Using Posix Threads: no (disabled by user)")
-		endif(WITH_Pthreads)
-	else(WIN32)
-		add_definitions(-DHAVE_PTHREAD)
-		message("Using Posix Threads: yes")
-	endif(WIN32)
-else(CMAKE_HAVE_PTHREAD_H)
-	message("Using Posix Threads: no (not found)")
-endif(CMAKE_HAVE_PTHREAD_H)
+if(WITH_GUI)
+	find_package(Qt4 4.4.0 COMPONENTS QtCore QtGui REQUIRED)
 
-if(WITH_Freetype)
-	find_package(Freetype REQUIRED)
-	message("Using FreeType: yes")
-	if(FREETYPE_FOUND)
-		add_definitions(-DHAVE_FREETYPE)
-	endif(FREETYPE_FOUND)
-else(WITH_Freetype)
-	message("Using FreeType: no")
-endif(WITH_Freetype)
+	# Qt enabling header
+	include(${QT_USE_FILE})
+endif(WITH_GUI)
+
+#check for swig if needed
+if (WITH_YAF_PY_BINDINGS OR WITH_YAF_RUBY_BINDINGS)
+	find_package(SWIG REQUIRED)
+	set(YAF_SWIG_MIN_VERSION 1.3.36)
+	if(NOT SWIG_FOUND)
+		message("Swig not found, please install it to build script bindings")
+		set(WITH_YAF_PY_BINDINGS OFF)
+		set(WITH_YAF_RUBY_BINDINGS OFF)
+	else(NOT SWIG_FOUND)
+		if(SWIG_VERSION VERSION_LESS ${YAF_SWIG_MIN_VERSION})
+			message("Swig version < ${YAF_SWIG_MIN_VERSION}, please update or bindings can't be built")
+			set(WITH_YAF_PY_BINDINGS OFF)
+			set(WITH_YAF_RUBY_BINDINGS OFF)
+		endif(SWIG_VERSION VERSION_LESS ${YAF_SWIG_MIN_VERSION})
+	endif(NOT SWIG_FOUND)
+endif (WITH_YAF_PY_BINDINGS OR WITH_YAF_RUBY_BINDINGS)
 
 if(WITH_OpenEXR)
 	find_package(OpenEXR REQUIRED)
