@@ -1981,9 +1981,11 @@ color_t mcIntegrator_t::estimateSSSSingleScattering(renderState_t &state, const 
 	const material_t *material = sp.material;
 	material->initBSDF(state, sp, bsdfs);
 	
+	color_t diffuseC;
 	color_t sigma_s, sigma_a, sigma_t;
 	float IOR;
 	TranslucentData_t* dat = (TranslucentData_t*)state.userdata;
+	diffuseC = dat->difC;
 	sigma_a = dat->sig_a;
 	sigma_s = dat->sig_s;
 	sigma_t = sigma_s + sigma_a;
@@ -2076,6 +2078,7 @@ color_t mcIntegrator_t::estimateSSSSingleScattering(renderState_t &state, const 
 	// restore old render state data
 	state.userdata = o_udat;
 	
+	singleS *= diffuseC;
 	
 	return singleS;
 }
@@ -2105,9 +2108,11 @@ color_t mcIntegrator_t::estimateSSSSingleSImportantSampling(renderState_t &state
 	const material_t *material = sp.material;
 	material->initBSDF(state, sp, bsdfs);
 	
+	color_t diffuseC;
 	color_t sigma_s, sigma_a, sigma_t;
 	float IOR;
 	TranslucentData_t* dat = (TranslucentData_t*)state.userdata;
+	diffuseC = dat->difC;
 	sigma_a = dat->sig_a;
 	sigma_s = dat->sig_s;
 	sigma_t = sigma_s + sigma_a;
@@ -2236,6 +2241,8 @@ color_t mcIntegrator_t::estimateSSSSingleSImportantSampling(renderState_t &state
 //		singleS = color_t(1.0,0.0,0.0);
 //	}
 	
+	singleS *= diffuseC;
+	
 	return singleS;
 }
 
@@ -2248,6 +2255,7 @@ color_t mcIntegrator_t::getTranslucentInScatter(renderState_t& state, ray_t& ste
 	float IOR;
 	
 	color_t inScatter(0.f);
+	color_t diffuseC;
 	surfacePoint_t sp;
 	sp.P = stepRay.from;
 	
@@ -2282,6 +2290,7 @@ color_t mcIntegrator_t::getTranslucentInScatter(renderState_t& state, ray_t& ste
 				material->initBSDF(state, outHit, bsdfs);
 			
 				TranslucentData_t* dat = (TranslucentData_t*)state.userdata;
+				diffuseC = dat->difC;
 				sigma_a = dat->sig_a;
 				sigma_s = dat->sig_s;
 				sigma_t = sigma_s + sigma_a;
@@ -2314,7 +2323,7 @@ color_t mcIntegrator_t::getTranslucentInScatter(renderState_t& state, ray_t& ste
 					
 					//std::cout << "\t\t tau = " << lightstepTau << " and light tau = " << lightTr << std::endl;//
 					
-					inScatter += (lightTr * lcol * Kt_i) * phaseFunc(lightRay.dir, -1*stepRay.dir);;
+					inScatter += (lightTr * lcol * diffuseC * Kt_i) * phaseFunc(lightRay.dir, -1*stepRay.dir);
 					
 					//std::cout << "\t\t lcol = " << lcol << " contribute= " << (lightTr * lcol * Kt_i) << std::endl;
 				}
@@ -2443,9 +2452,11 @@ color_t mcIntegrator_t::estimateSSSSingleScatteringPhotons(renderState_t &state,
 	const material_t *material = sp.material;
 	material->initBSDF(state, sp, bsdfs);
 	
+	color_t diffuseC;
 	color_t sigma_s, sigma_a, sigma_t;
 	float IOR;
 	TranslucentData_t* dat = (TranslucentData_t*)state.userdata;
+	diffuseC = dat->difC;
 	sigma_a = dat->sig_a;
 	sigma_s = dat->sig_s;
 	sigma_t = sigma_s + sigma_a;
@@ -2564,7 +2575,7 @@ color_t mcIntegrator_t::estimateSSSSingleScatteringPhotons(renderState_t &state,
 	// restore old render state data
 	state.userdata = o_udat;
 	
-	//singleS *= 30;
+	singleS *= diffuseC;
 	
 	return singleS;
 }

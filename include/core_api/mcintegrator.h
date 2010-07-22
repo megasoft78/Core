@@ -107,6 +107,7 @@ class YAFRAYCORE_EXPORT mcIntegrator_t: public tiledIntegrator_t
 		float icKappa; //! controls the overall density of IC records
 		bool icDumpXML; //! true if you want to have a file with the IC tree information (it may be big)
 		
+		bool usePhotonSSS;
 		unsigned int nSSSPhotons;
 		int nSSSDepth;
 		unsigned int nSingleScatterSamples;

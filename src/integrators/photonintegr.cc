@@ -734,16 +734,17 @@ bool photonIntegrator_t::preprocess()
 		Y_INFO << integratorName << ": Done." << yendl;
 	}
 	
+	if (usePhotonSSS)
 	{
 //		Y_INFO << "SSSMap : " << SSSMaps.size() << yendl;
 		//createSSSMaps();
-//		createSSSMapsByPhotonTracing();
-//		std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.begin();
-//		while (it!=SSSMaps.end()) {
-//			it->second->updateTree();
-//			Y_INFO << "SSS:" << it->second->nPhotons() << " photons. " << yendl;
-//			it++;
-//		}
+		createSSSMapsByPhotonTracing();
+		std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.begin();
+		while (it!=SSSMaps.end()) {
+			it->second->updateTree();
+			Y_INFO << "SSS:" << it->second->nPhotons() << " photons. " << yendl;
+			it++;
+		}
 	}
 
 	if(diffuseMap.nPhotons() < 50)
@@ -1126,6 +1127,7 @@ integrator_t* photonIntegrator_t::factory(paraMap_t &params, renderEnvironment_t
 	bool transpShad=false;
 	bool finalGather=true;
 	bool show_map=false;
+	bool useSSS=false;
 	int shadowDepth=5;
 	int raydepth=5;
 	int numPhotons = 100000;
@@ -1162,6 +1164,7 @@ integrator_t* photonIntegrator_t::factory(paraMap_t &params, renderEnvironment_t
 	params.getParam("fg_min_pathlen", gatherDist);
 	params.getParam("show_map", show_map);
 	
+	params.getParam("useSSS", useSSS);
 	params.getParam("sssPhotons", sssPhotons);
 	params.getParam("sssDepth", sssdepth);
 	params.getParam("singleScatterSamples", singleSSamples);
@@ -1179,6 +1182,7 @@ integrator_t* photonIntegrator_t::factory(paraMap_t &params, renderEnvironment_t
 	ite->showMap = show_map;
 	ite->gatherDist = gatherDist;
 	
+	ite->usePhotonSSS = useSSS;
 	ite->nSSSPhotons = sssPhotons;
 	ite->nSSSDepth = sssdepth;
 	ite->nSingleScatterSamples = singleSSamples;

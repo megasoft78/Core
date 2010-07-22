@@ -77,6 +77,7 @@ bool directLighting_t::preprocess()
 		if(!set.str().empty()) set << "+";
 		set << "Caustics:" << nCausPhotons << " photons. ";
 	}
+	if (usePhotonSSS)
 	{
 		//success = createSSSMaps();
 		success = createSSSMapsByPhotonTracing();
@@ -136,7 +137,7 @@ colorA_t directLighting_t::integrate(renderState_t &state, diffRay_t &ray) const
 			col += estimateSSSMaps(state,sp,wo);
 			//col += estimateSSSSingleScattering(state,sp,wo);
 			//col += estimateSSSSingleScatteringPhotons(state,sp,wo);
-			//col += estimateSSSSingleSImportantSampling(state,sp,wo);
+			col += estimateSSSSingleSImportantSampling(state,sp,wo);
 		}
 		
 		recursiveRaytrace(state, ray, bsdfs, sp, wo, col, alpha);
@@ -157,7 +158,7 @@ colorA_t directLighting_t::integrate(renderState_t &state, diffRay_t &ray) const
 integrator_t* directLighting_t::factory(paraMap_t &params, renderEnvironment_t &render)
 {
 	bool transpShad=false;
-	bool caustics=false;
+	bool caustics=false, useSSS=false;
 	bool do_AO=false;
 	int shadowDepth=5;
 	int raydepth=5, cDepth=10;
@@ -183,7 +184,7 @@ integrator_t* directLighting_t::factory(paraMap_t &params, renderEnvironment_t &
 	params.getParam("AO_distance", AO_dist);
 	params.getParam("AO_color", AO_col);
 	
-	
+	params.getParam("useSSS", useSSS);
 	params.getParam("sssPhotons", sssPhotons);
 	params.getParam("sssDepth", sssdepth);
 	params.getParam("singleScatterSamples", singleSSamples);
@@ -202,6 +203,7 @@ integrator_t* directLighting_t::factory(paraMap_t &params, renderEnvironment_t &
 	inte->aoDist = AO_dist;
 	inte->aoCol = AO_col;
 	// sss settings
+	inte->usePhotonSSS = useSSS;
 	inte->nSSSPhotons = sssPhotons;
 	inte->nSSSDepth = sssdepth;
 	inte->nSingleScatterSamples = singleSSamples;
