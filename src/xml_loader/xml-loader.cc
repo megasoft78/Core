@@ -292,7 +292,7 @@ int main(int argc, char *argv[])
 	bool success = parse_xml_file(xmlFile.c_str(), scene, env, render);
 	if(!success) exit(1);
 
-	test(scene);
+	//test(scene);
 	
 	int width=320, height=240;
 	int bx = 0, by = 0;
