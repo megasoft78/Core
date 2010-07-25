@@ -1099,7 +1099,7 @@ colorA_t photonIntegrator_t::integrate(renderState_t &state, diffRay_t &ray) con
 		
 		if(bsdfs & BSDF_TRANSLUCENT) 
 		{
-			col += estimateAllDirectLight(state, sp, wo);
+			//col += estimateAllDirectLight(state, sp, wo);
 			col += estimateSSSMaps(state,sp,wo);
 			//col += estimateSSSSingleScattering(state,sp,wo);
 			//col += estimateSSSSingleScatteringPhotons(state,sp,wo);

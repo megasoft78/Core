@@ -109,7 +109,7 @@ color_t translucentMat_t::eval(const renderState_t &state, const surfacePoint_t 
 	}
 	
 	float Kr, Kt;
-	fresnel(wo, N, IOR, Kr, Kt);
+	fresnel(wl, N, IOR, Kr, Kt);
 	
 	return scolor*Kr;
 }
@@ -129,7 +129,7 @@ color_t translucentMat_t::sample(const renderState_t &state, const surfacePoint_
 		scolor = diffuseCol;
 	
 	float Kr, Kt;
-	fresnel(wo, N, IOR, Kr, Kt);
+	fresnel(wi, N, IOR, Kr, Kt);
 	
 	return scolor*Kr;
 }
