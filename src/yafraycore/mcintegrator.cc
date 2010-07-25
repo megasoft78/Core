@@ -1929,7 +1929,8 @@ color_t mcIntegrator_t::estimateSSSMaps(renderState_t &state, const surfacePoint
 	IOR = dat->IOR;
 	
 	// sum all photon in translucent object
-	const std::vector<const photon_t*>& photons = sssMap_t->getAllPhotons(sp.P);
+	std::vector<const photon_t*> photons;
+	sssMap_t->getAllPhotons(sp.P,photons);
 	
 	for (uint i=0; i<photons.size(); i++) {
 		//sum += dipole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);

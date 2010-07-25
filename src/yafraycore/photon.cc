@@ -77,16 +77,20 @@ const photon_t* photonMap_t::findNearest(const point3d_t &P, const vector3d_t &n
 }
 
 
-const std::vector<const photon_t*>& photonMap_t::getAllPhotons(const point3d_t& woP)
-{ 
-	tree->GetPhotons(woP,sssPhotons,1.0f);
-	/*sssPhotons.clear();
-	for (int i=0; i<photons.size(); i++) {
-		sssPhotons.push_back(&photons[i]);
-	}*/
-	return sssPhotons; 
-}
+//const std::vector<const photon_t*>& photonMap_t::getAllPhotons(const point3d_t& woP)
+//{ 
+//	tree->GetPhotons(woP,sssPhotons,1.0f);
+//	/*sssPhotons.clear();
+//	for (int i=0; i<photons.size(); i++) {
+//		sssPhotons.push_back(&photons[i]);
+//	}*/
+//	return sssPhotons; 
+//}
 
+void photonMap_t::getAllPhotons(const point3d_t& woP, std::vector<const photon_t*>& sssPhotons)
+{
+	tree->GetPhotons(woP,sssPhotons, 1.0f);
+}
 
 int photonMap_t::numberOfPhotonInDisc(const point3d_t &p, PFLOAT scale, PFLOAT dist) const
 {
