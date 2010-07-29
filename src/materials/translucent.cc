@@ -41,7 +41,8 @@ struct TranslucentData_t
 	color_t difC;
 	color_t sig_s;
 	color_t sig_a;
-	float	IOR;
+	float IOR;
+	float mTransl, mDiffuse, mGlossy, pDiffuse;
 	
 	void *stack;
 };
@@ -49,24 +50,28 @@ struct TranslucentData_t
 class translucentMat_t: public nodeMaterial_t
 {
 	public:
-		translucentMat_t(color_t diffuseC, color_t specC, color_t siga, color_t sigs, float ior);
+		translucentMat_t(color_t diffuseC, color_t specC, color_t glossyC, color_t siga, color_t sigs, float ior, float mT, float mD, float mG, float exp);
 		virtual ~translucentMat_t();
 		virtual void initBSDF(const renderState_t &state, const surfacePoint_t &sp, unsigned int &bsdfTypes)const;
 		virtual color_t eval(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, const vector3d_t &wl, BSDF_t bsdfs)const;
 		virtual color_t sample(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, vector3d_t &wi, sample_t &s)const;
 		virtual color_t emit(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo)const;
 		virtual float pdf(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, const vector3d_t &wi, BSDF_t bsdfs)const;
-		virtual void getSpecular(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo,
-								 bool &refl, bool &refr, vector3d_t *const dir, color_t *const col)const;
+		//virtual void getSpecular(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo,
+		//						 bool &refl, bool &refr, vector3d_t *const dir, color_t *const col)const;
 		static material_t* factory(paraMap_t &params, std::list< paraMap_t > &eparans, renderEnvironment_t &env);
 	protected:
-		shaderNode_t *diffuseS; //!< shader node for diffuse colo
+		shaderNode_t* diffuseS; //!< shader node for diffuse colo
+		shaderNode_t* glossyS;
+		shaderNode_t* glossyRefS;
+		shaderNode_t* bumpS;
+	
 		color_t diffuseCol;
 		color_t specRefCol;
 		color_t gloss_color;
 	
 		float with_diffuse;
-		float mTransl, mDiffuse, mGlossy;
+		float translucency, diffusity, glossity;
 		float pDiffuse;
 		float exponent;
 	
@@ -79,34 +84,22 @@ class translucentMat_t: public nodeMaterial_t
 		float	IOR;
 };
 
-translucentMat_t::translucentMat_t(color_t diffuseC, color_t specC, color_t siga, color_t sigs, float ior): diffuseCol(diffuseC),specRefCol(specC),sigma_a(siga),sigma_s(sigs),IOR(ior),
-								diffuseS(0)
-{
-//	bsdfFlags = BSDF_TRANSLUCENT;// | BSDF_SPECULAR;
-//	//std::cout << sigma_a << " " << sigma_s << " " << IOR << std::endl;
+translucentMat_t::translucentMat_t(color_t diffuseC, color_t specC, color_t glossyC, color_t siga, color_t sigs, float ior, float mT, float mD, float mG, float exp): diffuseCol(diffuseC),specRefCol(specC),gloss_color(glossyC),
+								sigma_a(siga),sigma_s(sigs),IOR(ior),
+								translucency(mT), diffusity(mD), glossity(mG), exponent(exp),
+								diffuseS(0), glossyS(0), glossyRefS(0), bumpS(0)
+{	
+//	gloss_color = color_t(1.0f);
 //	
-//	if(mDiffuse > 0)
-//	{
-//		bsdfFlags |= BSDF_DIFFUSE | BSDF_REFLECT;
-//		with_diffuse = true;
-//	}
-//	
-//	bsdfFlags |= (BSDF_GLOSSY | BSDF_REFLECT);
-	
-	gloss_color = color_t(1.0f);
-	
-	mDiffuse = 1.0f;
-	mGlossy = 0.99f;
-	mTransl = 1.0f;
-	
-	pDiffuse = std::min(0.6f , 1.f - (mGlossy/(mGlossy + (1.f-mGlossy)*mDiffuse)) );
-	
-	exponent = 200;
+//	diffusity = 0.001;
+//	glossity = 1.0;
+//	translucency = 0.9f;
+//	exponent = 800;
 	
 	cFlags[C_TRANSLUCENT] = (BSDF_TRANSLUCENT);
 	cFlags[C_GLOSSY] = (BSDF_GLOSSY | BSDF_REFLECT);
 	
-	if(mDiffuse>0)
+	if(diffusity>0)
 	{
 		cFlags[C_DIFFUSE] = BSDF_DIFFUSE | BSDF_REFLECT;
 		with_diffuse = true;
@@ -131,6 +124,7 @@ void translucentMat_t::initBSDF(const renderState_t &state, const surfacePoint_t
 	
 	dat->stack = (char*)state.userdata + sizeof(TranslucentData_t);
 	nodeStack_t stack(dat->stack);
+	if(bumpS) evalBump(stack, state, sp, bumpS);
 	
 	std::vector<shaderNode_t *>::const_iterator iter, end=allViewindep.end();
 	for(iter = allViewindep.begin(); iter!=end; ++iter) (*iter)->eval(stack, state, sp);
@@ -140,36 +134,25 @@ void translucentMat_t::initBSDF(const renderState_t &state, const surfacePoint_t
 	dat->sig_a = this->sigma_a;
 	dat->IOR = this->IOR;
 	
+	dat->mDiffuse = this->diffusity;
+	dat->mGlossy = glossyRefS ? glossyRefS->getScalar(stack) : this->glossity;
+	dat->mTransl = this->translucency;
+	
+	dat->pDiffuse = std::min(0.6f , 1.f - (dat->mGlossy/(dat->mGlossy + (1.f-dat->mGlossy)*dat->mDiffuse)) );
+	
 	bsdfTypes=bsdfFlags;
 }
 
 color_t translucentMat_t::eval(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, const vector3d_t &wl, BSDF_t bsdfs)const
 {
-//	color_t scolor(0.f);
-//	
-//	// face forward:
-//	vector3d_t N = FACE_FORWARD(sp.Ng, sp.N, wo);
-//	//if(!(bsdfs & bsdfFlags )) 
-//	//	return scolor;
-//	if(N*wl < 0.0) 
-//		return scolor;
-//	//if (bsdfs & BSDF_TRANSLUCENT) 
-//	{
-//		scolor = diffuseCol;
-//	}
-//	
-//	float Kr, Kt;
-//	fresnel(wl, N, IOR, Kr, Kt);
-//	
-//	return scolor*Kr;
+	if( !(bsdfs & BSDF_DIFFUSE) || ((sp.Ng*wl)*(sp.Ng*wo)) < 0.f ) 
+		return color_t(0.f);
 	
-	if( !(bsdfs & BSDF_DIFFUSE) || ((sp.Ng*wl)*(sp.Ng*wo)) < 0.f ) return color_t(0.f);
-	
-	//MDat_t *dat = (MDat_t *)state.userdata;
+	TranslucentData_t *dat = (TranslucentData_t *)state.userdata;
 	color_t col(0.f);
 	bool diffuse_flag = bsdfs & BSDF_DIFFUSE;
 	
-	//nodeStack_t stack(dat->stack);
+	nodeStack_t stack(dat->stack);
 	vector3d_t N = FACE_FORWARD(sp.Ng, sp.N, wo);
 	
 	float wiN = std::fabs(wl * N);
@@ -178,7 +161,7 @@ color_t translucentMat_t::eval(const renderState_t &state, const surfacePoint_t 
 	float Kr, Kt;
 	fresnel(wl, N, IOR, Kr, Kt);
 	
-	float mR = (1.0f - Kt*mTransl);
+	float mR = (1.0f - Kt*dat->mTransl);
 	
 	if(bsdfs & BSDF_GLOSSY)
 	{
@@ -188,17 +171,17 @@ color_t translucentMat_t::eval(const renderState_t &state, const surfacePoint_t 
 		
 		{
 			//glossy = Blinn_D(H*N, exponent) * SchlickFresnel(cos_wi_H, dat->mGlossy) / ASDivisor(cos_wi_H, woN, wiN);
-			glossy = mR*Blinn_D(H*N, exponent) * SchlickFresnel(cos_wi_H, this->mGlossy) / ASDivisor(cos_wi_H, woN, wiN);
+			glossy = mR*Blinn_D(H*N, exponent) * SchlickFresnel(cos_wi_H, dat->mGlossy) / ASDivisor(cos_wi_H, woN, wiN);
 		}
 		
-		//col = glossy*(glossyS ? glossyS->getColor(stack) : gloss_color);
-		col = glossy*gloss_color;
+		col = glossy*(glossyS ? glossyS->getColor(stack) : gloss_color);
+		//col = glossy*gloss_color;
 	}
 	
 	if(with_diffuse && diffuse_flag)
 	{
 		//col += diffuseReflect(wiN, woN, dat->mGlossy, dat->mDiffuse, (diffuseS ? diffuseS->getColor(stack) : diff_color)) * ((orenNayar)?OrenNayar(wi, wo, N):1.f);
-		col += mR * diffuseReflect(wiN, woN, this->mGlossy, this->mDiffuse, this->diffuseCol);
+		col += mR * diffuseReflect(wiN, woN, dat->mGlossy, dat->mDiffuse, (diffuseS ? diffuseS->getColor(stack) : diffuseCol));
 	}
 	
 	return col;
@@ -206,123 +189,7 @@ color_t translucentMat_t::eval(const renderState_t &state, const surfacePoint_t 
 
 color_t translucentMat_t::sample(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, vector3d_t &wi, sample_t &s)const
 {
-//	color_t scolor(0.f);
-//	PFLOAT cos_Ng_wo = sp.Ng*wo, cos_Ng_wi;
-//	
-//	vector3d_t N = FACE_FORWARD(sp.Ng, sp.N, wo);
-//	
-//	wi = SampleCosHemisphere(N, sp.NU, sp.NV, s.s1, s.s2);
-//	s.pdf = std::fabs(wi*N);
-//	
-//	cos_Ng_wi = sp.Ng*wi;
-//	if(cos_Ng_wo*cos_Ng_wi > 0)
-//		scolor = diffuseCol;
-//	
-//	float Kr, Kt;
-//	fresnel(wi, N, IOR, Kr, Kt);
-//	
-//	return scolor*Kr;
-	
-	{
-//	//MDat_t *dat = (MDat_t *)state.userdata;
-//	float cos_Ng_wo = sp.Ng*wo;
-//	float cos_Ng_wi;
-//	vector3d_t N = FACE_FORWARD(sp.Ng, sp.N, wo);//(cos_Ng_wo < 0) ? -sp.N : sp.N;
-//	vector3d_t Hs;
-//	s.pdf = 0.f;
-//	float wiN = 0.f;
-//	float woN = std::fabs(wo * N);
-//	float cos_wo_H = 0.f;
-//	
-//	color_t scolor(0.f);
-//	
-//	float s1 = s.s1;
-//	float cur_pDiffuse = pDiffuse;
-//	bool use_glossy = s.flags & BSDF_GLOSSY;
-//	bool use_diffuse = with_diffuse && (s.flags & BSDF_DIFFUSE);
-//	//nodeStack_t stack(dat->stack);
-//	float glossy = 0.f;
-//	
-//	if(use_diffuse)
-//	{
-//		float s_pDiffuse = use_glossy ? cur_pDiffuse : 1.f;
-//		if(s1 < s_pDiffuse)
-//		{
-//			s1 /= s_pDiffuse;
-//			wi = SampleCosHemisphere(N, sp.NU, sp.NV, s1, s.s2);
-//			
-//			cos_Ng_wi = sp.Ng * wi;
-//			
-//			if(cos_Ng_wi * cos_Ng_wo < 0.f) return scolor;
-//			
-//			wiN = std::fabs(wi * N);
-//			
-//			s.pdf = wiN;
-//			
-//			if(use_glossy)
-//			{
-//				vector3d_t H = (wi+wo).normalize();
-//				cos_wo_H = wo*H;
-//				float cos_wi_H = std::max(0.f, wi*H);
-//				float cos_N_H = N*H;
-//				{
-//					s.pdf = s.pdf*cur_pDiffuse + Blinn_Pdf(cos_N_H, cos_wo_H, exponent)*(1.f-cur_pDiffuse);
-//					glossy = Blinn_D(cos_N_H, exponent) * SchlickFresnel(cos_wi_H, mGlossy) / ASDivisor(cos_wi_H, woN, wiN);
-//				}
-//			}
-//			s.sampledFlags = BSDF_DIFFUSE | BSDF_REFLECT;
-//			
-//			if( !(s.flags & BSDF_REFLECT) ) return color_t(0.f);
-//			
-//			scolor = glossy*gloss_color;
-//			
-//			if(use_diffuse) scolor += diffuseReflect(wiN, woN, mGlossy, mDiffuse, diffuseCol);
-//			
-//			return scolor;
-//			
-//		}
-//		s1 -= cur_pDiffuse;
-//		s1 /= (1.f - cur_pDiffuse);
-//	}
-//	
-//	if(use_glossy)
-//	{
-//		{
-// 			Blinn_Sample(Hs, s1, s.s2, exponent);
-//			vector3d_t H = Hs.x*sp.NU + Hs.y*sp.NV + Hs.z*N;
-//			cos_wo_H = wo*H;
-//			if ( cos_wo_H < 0.f )
-//			{
-//				H = reflect_plane(N, H);
-//				cos_wo_H = wo*H;
-//			}
-//			// Compute incident direction by reflecting wo about H
-//			wi = reflect_dir(H, wo);
-//			cos_Ng_wi = sp.Ng*wi;
-//			
-//			if(cos_Ng_wo*cos_Ng_wi < 0.f) return color_t(0.f);
-//			
-//			wiN = std::fabs(wi * N);
-//			
-//			s.pdf = Blinn_Pdf(Hs.z, cos_wo_H, exponent);
-//			glossy = Blinn_D(Hs.z, exponent) * SchlickFresnel(cos_wo_H, mGlossy)  / ASDivisor(cos_wo_H, woN, wiN);
-//		}
-//		
-//		scolor = glossy * gloss_color;
-//		s.sampledFlags = BSDF_GLOSSY | BSDF_REFLECT;
-//	}
-//	
-//	if(use_diffuse)
-//	{
-//		s.pdf = wiN * cur_pDiffuse + s.pdf * (1.f-cur_pDiffuse);
-//		scolor += diffuseReflect(wiN, woN, mGlossy, mDiffuse, diffuseCol);
-//	}
-//	
-//	return scolor;
-	}
-	
-	
-	//MDat_t *dat = (MDat_t *)state.userdata;
+	TranslucentData_t *dat = (TranslucentData_t *)state.userdata;
 	float cos_Ng_wo = sp.Ng*wo;
 	float cos_Ng_wi;
 	vector3d_t N = (cos_Ng_wo<0) ? -sp.N : sp.N;
@@ -334,14 +201,14 @@ color_t translucentMat_t::sample(const renderState_t &state, const surfacePoint_
 	fresnel(wi, N, IOR, Kr, Kt);
 	
 	// missing! get components
-	//nodeStack_t stack(dat->stack);
+	nodeStack_t stack(dat->stack);
 	bool use[3] = {false, false, false};
 	float sum = 0.f, accumC[3], val[3], width[3];
 	int cIndex[3]; // entry values: 0 := specular part, 1 := glossy part, 2:= diffuse part;
 	int rcIndex[3]; // reverse fmapping of cIndex, gives position of spec/glossy/diff in val/width array
-	accumC[0] = Kt*this->mTransl;
-	accumC[1] = (1.f - Kt*this->mTransl)*(1.f - pDiffuse);
-	accumC[2] = (1.f - Kt*this->mTransl)*(this->pDiffuse);
+	accumC[0] = Kt*dat->mTransl;
+	accumC[1] = (1.f - Kt*dat->mTransl)*(1.f - dat->pDiffuse);
+	accumC[2] = (1.f - Kt*dat->mTransl)*(dat->pDiffuse);
 	
 	int nMatch = 0, pick = -1;
 	for(int i = 0; i < nBSDF; ++i)
@@ -425,14 +292,14 @@ color_t translucentMat_t::sample(const renderState_t &state, const surfacePoint_
 			
 			{
 				s.pdf += Blinn_Pdf(Hs.z, cos_wo_H, exponent) * width[rcIndex[C_GLOSSY]];
-				glossy = Blinn_D(Hs.z, exponent) * SchlickFresnel(cos_wo_H, mGlossy) / ASDivisor(cos_wo_H, woN, wiN);
+				glossy = Blinn_D(Hs.z, exponent) * SchlickFresnel(cos_wo_H, dat->mGlossy) / ASDivisor(cos_wo_H, woN, wiN);
 			}
-			scolor = (CFLOAT)glossy*(1.f-Kt*this->mTransl)*gloss_color;
+			scolor = (CFLOAT)glossy*(1.f-Kt*dat->mTransl)*(glossyS ? glossyS->getColor(stack) : gloss_color);
 		}
 		
 		if(use[C_DIFFUSE])
 		{
-			scolor += (1.f-Kt*this->mTransl)*diffuseReflect(wiN, woN, mGlossy, mDiffuse, diffuseCol);
+			scolor += (1.f-Kt*dat->mTransl)*diffuseReflect(wiN, woN, dat->mGlossy, dat->mDiffuse, (diffuseS ? diffuseS->getColor(stack) : diffuseCol));
 			s.pdf += wiN * width[rcIndex[C_DIFFUSE]];
 		}
 	}
@@ -448,44 +315,7 @@ color_t translucentMat_t::emit(const renderState_t &state, const surfacePoint_t 
 
 float translucentMat_t::pdf(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, const vector3d_t &wi, BSDF_t bsdfs)const
 {	
-//	vector3d_t N = FACE_FORWARD(sp.Ng, sp.N, wo);
-//	return std::fabs(wi*N);
-	{
-//	//MDat_t *dat = (MDat_t *)state.userdata;
-//	if((sp.Ng * wo) * (sp.Ng * wi) < 0.f) return 0.f;
-//	vector3d_t N = FACE_FORWARD(sp.Ng, sp.N, wo);
-//	float pdf = 0.f;
-//	float cos_wo_H = 0.f;
-//	float cos_N_H = 0.f;
-//	
-//	float cur_pDiffuse = pDiffuse;
-//	bool use_glossy = (bsdfs & BSDF_GLOSSY);
-//	bool use_diffuse = with_diffuse && (bsdfs & BSDF_DIFFUSE);
-//	
-//	if(use_diffuse)
-//	{
-//		pdf = std::fabs(wi*N);
-//		if(use_glossy)
-//		{
-//			vector3d_t H = (wi+wo).normalize();
-//			cos_wo_H = wo*H;
-//			cos_N_H = N*H;
-//			pdf = pdf*cur_pDiffuse + Blinn_Pdf(cos_N_H, cos_wo_H, exponent)*(1.f-cur_pDiffuse);
-//		}
-//		return pdf;
-//	}
-//	
-//	if(use_glossy)
-//	{
-//		vector3d_t H = (wi+wo).normalize();
-//		cos_wo_H = wo*H;
-//		cos_N_H = N*H;
-//		pdf = Blinn_Pdf(cos_N_H, cos_wo_H, exponent);
-//	}
-//	return pdf;
-	}
-	
-	//MDat_t *dat = (MDat_t *)state.userdata;
+	TranslucentData_t *dat = (TranslucentData_t *)state.userdata;
 	bool transmit = ((sp.Ng * wo) * (sp.Ng * wi)) < 0.f;
 	if(transmit) return 0.f;
 	vector3d_t N = FACE_FORWARD(sp.Ng, sp.N, wo);
@@ -495,9 +325,9 @@ float translucentMat_t::pdf(const renderState_t &state, const surfacePoint_t &sp
 	fresnel(wi, N, IOR, Kr, Kt);
 	
 	float accumC[3], sum=0.f, width;
-	accumC[0] = Kt*this->mTransl;
-	accumC[1] = (1.f - Kt*this->mTransl)*(1.f - pDiffuse);
-	accumC[2] = (1.f - Kt*this->mTransl)*(this->pDiffuse);
+	accumC[0] = Kt*dat->mTransl;
+	accumC[1] = (1.f - Kt*dat->mTransl)*(1.f - dat->pDiffuse);
+	accumC[2] = (1.f - Kt*dat->mTransl)*(dat->pDiffuse);
 	
 	int nMatch=0;
 	for(int i=0; i<nBSDF; ++i)
@@ -524,38 +354,46 @@ float translucentMat_t::pdf(const renderState_t &state, const surfacePoint_t &sp
 	return pdf / sum;
 }
 
-void translucentMat_t::getSpecular(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo,
-						 bool &refl, bool &refr, vector3d_t *const dir, color_t *const col)const
-{
-	PFLOAT cos_Ng_wo = sp.Ng*wo, cos_Ng_wi;
-	
-	vector3d_t N = FACE_FORWARD(sp.Ng, sp.N, wo);
-	
-	float Kr, Kt;
-	fresnel(wo, N, IOR, Kr, Kt);
-	
-	refr = false;
-	dir[0] = reflect_plane(N, wo);
-	//col[0] = (mirColS ? mirColS->getColor(stack) : specRefCol) * Kr;
-	col[0] = specRefCol * Kr;
-	refl = true;
-}
+//void translucentMat_t::getSpecular(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo,
+//						 bool &refl, bool &refr, vector3d_t *const dir, color_t *const col)const
+//{
+//	PFLOAT cos_Ng_wo = sp.Ng*wo, cos_Ng_wi;
+//	
+//	vector3d_t N = FACE_FORWARD(sp.Ng, sp.N, wo);
+//	
+//	float Kr, Kt;
+//	fresnel(wo, N, IOR, Kr, Kt);
+//	
+//	refr = false;
+//	dir[0] = reflect_plane(N, wo);
+//	//col[0] = (mirColS ? mirColS->getColor(stack) : specRefCol) * Kr;
+//	col[0] = specRefCol * Kr;
+//	refl = true;
+//}
 
 material_t* translucentMat_t::factory(paraMap_t &params, std::list< paraMap_t > &eparans, renderEnvironment_t &env)
 {
 	color_t col(1.0f);
+	color_t glossyC(1.0f);
 	color_t specC(1.0f);
 	color_t siga(0.01f);
 	color_t sigs(1.0f);
 	float ior = 1.3;
+	float mT=0.9, mG=1.0, mD=0.001f;
+	float exp = 800;
 	const std::string *name=0;
 	params.getParam("color", col);
+	params.getParam("glossy_color", glossyC);
 	params.getParam("specular_color", specC);
 	params.getParam("sigmaA", siga);
 	params.getParam("sigmaS", sigs);
 	params.getParam("IOR", ior);
+	params.getParam("diffuse_reflect", mD);
+	params.getParam("glossy_reflect", mG);
+	params.getParam("sss_transmit", mT);
+	params.getParam("exponent", exp);
 	
-	translucentMat_t* mat = new translucentMat_t(col,specC,siga,sigs,ior);
+	translucentMat_t* mat = new translucentMat_t(col,specC,glossyC,siga,sigs,ior, mT, mD, mG, exp);
 	
 	std::vector<shaderNode_t *> roots;
 	std::map<std::string, shaderNode_t *> nodeList;
@@ -563,6 +401,9 @@ material_t* translucentMat_t::factory(paraMap_t &params, std::list< paraMap_t > 
 	
 	// Prepare our node list
 	nodeList["diffuse_shader"] = NULL;
+	nodeList["glossy_shader"] = NULL;
+	nodeList["glossy_reflect_shader"] = NULL;
+	nodeList["bump_shader"] = NULL;
 	
 	if(mat->loadNodes(eparans, env))
 	{
@@ -584,6 +425,9 @@ material_t* translucentMat_t::factory(paraMap_t &params, std::list< paraMap_t > 
 	else Y_ERROR << "Glossy: loadNodes() failed!" << yendl;
 	
 	mat->diffuseS = nodeList["diffuse_shader"];
+	mat->glossyS = nodeList["glossy_shader"];
+	mat->glossyRefS = nodeList["glossy_reflect_shader"];
+	mat->bumpS = nodeList["bump_shader"];
 	
 	// solve nodes order
 	if(!roots.empty())
@@ -593,9 +437,13 @@ material_t* translucentMat_t::factory(paraMap_t &params, std::list< paraMap_t > 
 		mat->solveNodesOrder(roots);
 		
 		if(mat->diffuseS) mat->getNodeList(mat->diffuseS, colorNodes);
+		if(mat->glossyS) mat->getNodeList(mat->glossyS, colorNodes);
+		if(mat->glossyRefS) mat->getNodeList(mat->glossyRefS, colorNodes);
 		mat->filterNodes(colorNodes, mat->allViewdep, VIEW_DEP);
 		mat->filterNodes(colorNodes, mat->allViewindep, VIEW_INDEP);
+		if(mat->bumpS) mat->getNodeList(mat->bumpS, mat->bumpNodes);
 	}
+	mat->reqMem = mat->reqNodeMem + sizeof(TranslucentData_t);
 	
 	return mat;
 }
