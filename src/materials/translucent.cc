@@ -112,7 +112,7 @@ translucentMat_t::translucentMat_t(color_t diffuseC, color_t specC, color_t glos
 		nBSDF = 2;
 	}
 	
-	bsdfFlags = cFlags[C_TRANSLUCENT];// | cFlags[C_GLOSSY] | cFlags[C_DIFFUSE];
+	bsdfFlags = cFlags[C_TRANSLUCENT] | cFlags[C_GLOSSY] | cFlags[C_DIFFUSE];
 }
 
 translucentMat_t::~translucentMat_t()
