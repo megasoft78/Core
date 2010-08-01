@@ -123,7 +123,7 @@ struct TranslucentData_t
 	color_t difC;
 	color_t sig_s;
 	color_t sig_a;
-	float IOR;
+	float IOR, g;
 	float mTransl, mDiffuse, mGlossy, pDiffuse;
 	
 	void *stack;

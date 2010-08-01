@@ -1,7 +1,7 @@
 /****************************************************************************
- * 			myDiffuse.cc: a test of diffuse materials
+ *		translucent.cc: translucent materials
  *      This is part of the yafray package
- *      Copyright (C) 2006  Mathias Wein
+ *      Copyright (C) 2010  Ronnie
  *
  *      This library is free software; you can redistribute it and/or
  *      modify it under the terms of the GNU Lesser General Public
@@ -41,7 +41,7 @@ struct TranslucentData_t
 	color_t difC;
 	color_t sig_s;
 	color_t sig_a;
-	float IOR;
+	float IOR, g;
 	float mTransl, mDiffuse, mGlossy, pDiffuse;
 	
 	void *stack;
@@ -50,7 +50,7 @@ struct TranslucentData_t
 class translucentMat_t: public nodeMaterial_t
 {
 	public:
-		translucentMat_t(color_t diffuseC, color_t specC, color_t glossyC, color_t siga, color_t sigs, float ior, float mT, float mD, float mG, float exp);
+		translucentMat_t(color_t diffuseC, color_t specC, color_t glossyC, color_t siga, color_t sigs, float ior, float _g, float mT, float mD, float mG, float exp);
 		virtual ~translucentMat_t();
 		virtual void initBSDF(const renderState_t &state, const surfacePoint_t &sp, unsigned int &bsdfTypes)const;
 		virtual color_t eval(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, const vector3d_t &wl, BSDF_t bsdfs)const;
@@ -82,10 +82,11 @@ class translucentMat_t: public nodeMaterial_t
 		color_t sigma_s;
 		color_t sigma_a;
 		float	IOR;
+		float	g;
 };
 
-translucentMat_t::translucentMat_t(color_t diffuseC, color_t specC, color_t glossyC, color_t siga, color_t sigs, float ior, float mT, float mD, float mG, float exp): diffuseCol(diffuseC),specRefCol(specC),gloss_color(glossyC),
-								sigma_a(siga),sigma_s(sigs),IOR(ior),
+translucentMat_t::translucentMat_t(color_t diffuseC, color_t specC, color_t glossyC, color_t siga, color_t sigs, float ior, float _g, float mT, float mD, float mG, float exp): diffuseCol(diffuseC),specRefCol(specC),gloss_color(glossyC),
+								sigma_a(siga),sigma_s(sigs),IOR(ior),g(_g),
 								translucency(mT), diffusity(mD), glossity(mG), exponent(exp),
 								diffuseS(0), glossyS(0), glossyRefS(0), bumpS(0)
 {	
@@ -111,7 +112,7 @@ translucentMat_t::translucentMat_t(color_t diffuseC, color_t specC, color_t glos
 		nBSDF = 2;
 	}
 	
-	bsdfFlags = cFlags[C_TRANSLUCENT] | cFlags[C_GLOSSY] | cFlags[C_DIFFUSE];
+	bsdfFlags = cFlags[C_TRANSLUCENT];// | cFlags[C_GLOSSY] | cFlags[C_DIFFUSE];
 }
 
 translucentMat_t::~translucentMat_t()
@@ -133,6 +134,7 @@ void translucentMat_t::initBSDF(const renderState_t &state, const surfacePoint_t
 	dat->sig_s = this->sigma_s;
 	dat->sig_a = this->sigma_a;
 	dat->IOR = this->IOR;
+	dat->g = this->g;
 	
 	dat->mDiffuse = this->diffusity;
 	dat->mGlossy = glossyRefS ? glossyRefS->getScalar(stack) : this->glossity;
@@ -379,6 +381,7 @@ material_t* translucentMat_t::factory(paraMap_t &params, std::list< paraMap_t > 
 	color_t siga(0.01f);
 	color_t sigs(1.0f);
 	float ior = 1.3;
+	float _g = 0;
 	float mT=0.9, mG=1.0, mD=0.001f;
 	float exp = 800;
 	const std::string *name=0;
@@ -388,12 +391,13 @@ material_t* translucentMat_t::factory(paraMap_t &params, std::list< paraMap_t > 
 	params.getParam("sigmaA", siga);
 	params.getParam("sigmaS", sigs);
 	params.getParam("IOR", ior);
+	params.getParam("g", _g);
 	params.getParam("diffuse_reflect", mD);
 	params.getParam("glossy_reflect", mG);
 	params.getParam("sss_transmit", mT);
 	params.getParam("exponent", exp);
 	
-	translucentMat_t* mat = new translucentMat_t(col,specC,glossyC,siga,sigs,ior, mT, mD, mG, exp);
+	translucentMat_t* mat = new translucentMat_t(col,specC,glossyC,siga,sigs,ior,_g, mT, mD, mG, exp);
 	
 	std::vector<shaderNode_t *> roots;
 	std::map<std::string, shaderNode_t *> nodeList;
