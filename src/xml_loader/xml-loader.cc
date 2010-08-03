@@ -24,7 +24,7 @@ using namespace::yafaray;
 #include <yafraycore/meshtypes.h>
 #include <limits>
 #include <yafraycore/best_candidate.h>
-#include <integrators/photonintegrGPU.h>
+//#include <integrators/photonintegrGPU.h>
 
 class DiskTessellator
 {
@@ -128,7 +128,7 @@ class DiskSceneTessellator : public DiskTessellator
 		}
 };
 
-void test(scene_t *scene) {
+/*void test(scene_t *scene) {
 	photonIntegratorGPU_t::DiskVectorType disks;
 	photonIntegratorGPU_t::NormalVectorType normals;
 
@@ -148,7 +148,7 @@ void test(scene_t *scene) {
 	for(photonIntegratorGPU_t::DiskVectorType::iterator itr = disks.begin(); itr != disks.end(); ++itr) {
 		tes.tessellate(itr->mat, itr->c, itr->r, normals[itr->n_idx]);
 	}
-}
+}*/
 
 int main(int argc, char *argv[])
 {
