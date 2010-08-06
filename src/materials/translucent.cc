@@ -97,19 +97,28 @@ translucentMat_t::translucentMat_t(color_t diffuseC, color_t specC, color_t glos
 //	translucency = 0.9f;
 //	exponent = 800;
 	
-	cFlags[C_TRANSLUCENT] = (BSDF_TRANSLUCENT);
-	cFlags[C_GLOSSY] = (BSDF_GLOSSY | BSDF_REFLECT);
+	std::cout << "sigma = " << siga << "   sigmas = " << sigs << std::endl;
 	
-	if(diffusity>0)
+	cFlags[C_TRANSLUCENT] = (BSDF_TRANSLUCENT);
+	if (glossity>0)
 	{
-		cFlags[C_DIFFUSE] = BSDF_DIFFUSE | BSDF_REFLECT;
-		with_diffuse = true;
-		nBSDF = 3;
+		cFlags[C_GLOSSY] = (BSDF_GLOSSY | BSDF_REFLECT);
+	
+		if(diffusity>0)
+		{
+			cFlags[C_DIFFUSE] = BSDF_DIFFUSE | BSDF_REFLECT;
+			with_diffuse = true;
+			nBSDF = 3;
+		}
+		else
+		{
+			cFlags[C_DIFFUSE] = BSDF_NONE;
+			nBSDF = 2;
+		}
 	}
-	else
-	{
-		cFlags[C_DIFFUSE] = BSDF_NONE;
-		nBSDF = 2;
+	else{
+		cFlags[C_GLOSSY] = cFlags[C_DIFFUSE] = BSDF_NONE;
+		nBSDF = 1;
 	}
 	
 	bsdfFlags = cFlags[C_TRANSLUCENT] | cFlags[C_GLOSSY] | cFlags[C_DIFFUSE];
@@ -380,6 +389,7 @@ material_t* translucentMat_t::factory(paraMap_t &params, std::list< paraMap_t > 
 	color_t specC(1.0f);
 	color_t siga(0.01f);
 	color_t sigs(1.0f);
+	float sigs_factor = 2.0f;
 	float ior = 1.3;
 	float _g = 0;
 	float mT=0.9, mG=1.0, mD=0.001f;
@@ -390,6 +400,7 @@ material_t* translucentMat_t::factory(paraMap_t &params, std::list< paraMap_t > 
 	params.getParam("specular_color", specC);
 	params.getParam("sigmaA", siga);
 	params.getParam("sigmaS", sigs);
+	params.getParam("sigmaS_factor", sigs_factor);
 	params.getParam("IOR", ior);
 	params.getParam("g", _g);
 	params.getParam("diffuse_reflect", mD);
@@ -397,7 +408,7 @@ material_t* translucentMat_t::factory(paraMap_t &params, std::list< paraMap_t > 
 	params.getParam("sss_transmit", mT);
 	params.getParam("exponent", exp);
 	
-	translucentMat_t* mat = new translucentMat_t(col,specC,glossyC,siga,sigs,ior,_g, mT, mD, mG, exp);
+	translucentMat_t* mat = new translucentMat_t(col,specC,glossyC,siga,sigs*sigs_factor,ior,_g, mT, mD, mG, exp);
 	
 	std::vector<shaderNode_t *> roots;
 	std::map<std::string, shaderNode_t *> nodeList;

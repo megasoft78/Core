@@ -84,6 +84,19 @@ bool pathIntegrator_t::preprocess()
 	{
 		success = createCausticMap();
 	}
+	
+	if (usePhotonSSS)
+	{
+		//success = createSSSMaps();
+		success = createSSSMapsByPhotonTracing();
+		set << "SSS shoot:" << nCausPhotons << " photons. ";
+		std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.begin();
+		while (it!=SSSMaps.end()) {
+			it->second->updateTree();
+			Y_INFO << "SSS:" << it->second->nPhotons() << " photons. " << yendl;
+			it++;
+		}
+	}
 
 	if(causticType == BOTH || causticType == PATH) traceCaustics = true;
 	
@@ -144,6 +157,11 @@ colorA_t pathIntegrator_t::integrate(renderState_t &state, diffRay_t &ray/*, sam
 			col += estimateAllDirectLight(state, sp, wo);
 			if(causticType == PHOTON || causticType == BOTH) col += estimateCausticPhotons(state, sp, wo);
 		}
+		if (bsdfs & BSDF_TRANSLUCENT) {
+			col += estimateSSSMaps(state,sp,wo);
+			col += estimateSSSSingleSImportantSampling(state,sp,wo);
+		}
+		
 				
 		// path tracing:
 		// the first path segment is "unrolled" from the loop because for the spot the camera hit
@@ -287,12 +305,15 @@ colorA_t pathIntegrator_t::integrate(renderState_t &state, diffRay_t &ray/*, sam
 
 integrator_t* pathIntegrator_t::factory(paraMap_t &params, renderEnvironment_t &render)
 {
-	bool transpShad=false, noRec=false;
+	bool transpShad=false, noRec=false, useSSS=false;
 	int shadowDepth = 5;
 	int path_samples = 32;
 	int bounces = 3;
 	int raydepth = 5;
 	const std::string *cMethod=0;
+	int sssdepth = 10, sssPhotons = 200000;
+	int singleSSamples = 128;
+	float sScale = 40.f;
 	
 	params.getParam("raydepth", raydepth);
 	params.getParam("transpShad", transpShad);
@@ -300,6 +321,12 @@ integrator_t* pathIntegrator_t::factory(paraMap_t &params, renderEnvironment_t &
 	params.getParam("path_samples", path_samples);
 	params.getParam("bounces", bounces);
 	params.getParam("no_recursive", noRec);
+	
+	params.getParam("useSSS", useSSS);
+	params.getParam("sssPhotons", sssPhotons);
+	params.getParam("sssDepth", sssdepth);
+	params.getParam("singleScatterSamples", singleSSamples);
+	params.getParam("sssScale", sScale);
 	
 	pathIntegrator_t* inte = new pathIntegrator_t(transpShad, shadowDepth);
 	if(params.getParam("caustic_type", cMethod))
@@ -327,6 +354,14 @@ integrator_t* pathIntegrator_t::factory(paraMap_t &params, renderEnvironment_t &
 	inte->invNPaths = 1.f / (float)path_samples;
 	inte->maxBounces = bounces;
 	inte->no_recursive = noRec;
+	// sss settings
+	inte->usePhotonSSS = useSSS;
+	inte->nSSSPhotons = sssPhotons;
+	inte->nSSSDepth = sssdepth;
+	inte->nSingleScatterSamples = singleSSamples;
+	inte->isDirectLight = false;
+	inte->sssScale = sScale;
+	
 	return inte;
 }
 
