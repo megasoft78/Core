@@ -50,7 +50,7 @@ struct TranslucentData_t
 class translucentMat_t: public nodeMaterial_t
 {
 	public:
-		translucentMat_t(color_t diffuseC, color_t specC, color_t glossyC, color_t siga, color_t sigs, float ior, float _g, float mT, float mD, float mG, float exp);
+		translucentMat_t(color_t diffuseC, color_t specC, color_t glossyC, color_t siga, color_t sigs, float sigs_factor, float ior, float _g, float mT, float mD, float mG, float exp);
 		virtual ~translucentMat_t();
 		virtual void initBSDF(const renderState_t &state, const surfacePoint_t &sp, unsigned int &bsdfTypes)const;
 		virtual color_t eval(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, const vector3d_t &wl, BSDF_t bsdfs)const;
@@ -61,10 +61,12 @@ class translucentMat_t: public nodeMaterial_t
 		//						 bool &refl, bool &refr, vector3d_t *const dir, color_t *const col)const;
 		static material_t* factory(paraMap_t &params, std::list< paraMap_t > &eparans, renderEnvironment_t &env);
 	protected:
-		shaderNode_t* diffuseS; //!< shader node for diffuse colo
-		shaderNode_t* glossyS;
-		shaderNode_t* glossyRefS;
-		shaderNode_t* bumpS;
+		shaderNode_t* diffuseS;		//!< shader node for diffuse color
+		shaderNode_t* glossyS;		//!< shader node for glossy color
+		shaderNode_t* glossyRefS;	//!< shader node for glossy reflecity
+		shaderNode_t* bumpS;		//!< shader node for bump mapping
+		shaderNode_t *transpS;		//!< shader node for sigmaA (color_t)
+		shaderNode_t *translS;		//!< shader node for sigmaS (color_t)
 	
 		color_t diffuseCol;
 		color_t specRefCol;
@@ -74,6 +76,7 @@ class translucentMat_t: public nodeMaterial_t
 		float translucency, diffusity, glossity;
 		float pDiffuse;
 		float exponent;
+		float sigmaS_Factor;
 	
 		BSDF_t cFlags[3];
 		int nBSDF;
@@ -85,20 +88,11 @@ class translucentMat_t: public nodeMaterial_t
 		float	g;
 };
 
-translucentMat_t::translucentMat_t(color_t diffuseC, color_t specC, color_t glossyC, color_t siga, color_t sigs, float ior, float _g, float mT, float mD, float mG, float exp): diffuseCol(diffuseC),specRefCol(specC),gloss_color(glossyC),
-								sigma_a(siga),sigma_s(sigs),IOR(ior),g(_g),
+translucentMat_t::translucentMat_t(color_t diffuseC, color_t specC, color_t glossyC, color_t siga, color_t sigs, float sigs_factor, float ior, float _g, float mT, float mD, float mG, float exp): diffuseCol(diffuseC),specRefCol(specC),gloss_color(glossyC),
+								sigma_a(siga),sigma_s(sigs), sigmaS_Factor(sigs_factor), IOR(ior),g(_g),
 								translucency(mT), diffusity(mD), glossity(mG), exponent(exp),
-								diffuseS(0), glossyS(0), glossyRefS(0), bumpS(0)
-{	
-//	gloss_color = color_t(1.0f);
-//	
-//	diffusity = 0.001;
-//	glossity = 1.0;
-//	translucency = 0.9f;
-//	exponent = 800;
-	
-	std::cout << "sigma = " << siga << "   sigmas = " << sigs << std::endl;
-	
+								diffuseS(0), glossyS(0), glossyRefS(0), bumpS(0), transpS(0), translS(0)
+{
 	cFlags[C_TRANSLUCENT] = (BSDF_TRANSLUCENT);
 	if (glossity>0)
 	{
@@ -140,8 +134,8 @@ void translucentMat_t::initBSDF(const renderState_t &state, const surfacePoint_t
 	for(iter = allViewindep.begin(); iter!=end; ++iter) (*iter)->eval(stack, state, sp);
 	
 	dat->difC = diffuseS?diffuseS->getColor(stack):diffuseCol;
-	dat->sig_s = this->sigma_s;
-	dat->sig_a = this->sigma_a;
+	dat->sig_s = sigmaS_Factor * (translS?translS->getColor(stack):this->sigma_s);
+	dat->sig_a = transpS?transpS->getColor(stack):this->sigma_a;
 	dat->IOR = this->IOR;
 	dat->g = this->g;
 	
@@ -389,7 +383,7 @@ material_t* translucentMat_t::factory(paraMap_t &params, std::list< paraMap_t > 
 	color_t specC(1.0f);
 	color_t siga(0.01f);
 	color_t sigs(1.0f);
-	float sigs_factor = 2.0f;
+	float sigs_factor = 1.0f;
 	float ior = 1.3;
 	float _g = 0;
 	float mT=0.9, mG=1.0, mD=0.001f;
@@ -408,7 +402,7 @@ material_t* translucentMat_t::factory(paraMap_t &params, std::list< paraMap_t > 
 	params.getParam("sss_transmit", mT);
 	params.getParam("exponent", exp);
 	
-	translucentMat_t* mat = new translucentMat_t(col,specC,glossyC,siga,sigs*sigs_factor,ior,_g, mT, mD, mG, exp);
+	translucentMat_t* mat = new translucentMat_t(col,specC,glossyC,siga,sigs,sigs_factor,ior,_g, mT, mD, mG, exp);
 	
 	std::vector<shaderNode_t *> roots;
 	std::map<std::string, shaderNode_t *> nodeList;
@@ -419,6 +413,8 @@ material_t* translucentMat_t::factory(paraMap_t &params, std::list< paraMap_t > 
 	nodeList["glossy_shader"] = NULL;
 	nodeList["glossy_reflect_shader"] = NULL;
 	nodeList["bump_shader"] = NULL;
+	nodeList["sigmaS_shader"] = NULL;
+	nodeList["sigmaA_shader"] = NULL;
 	
 	if(mat->loadNodes(eparans, env))
 	{
@@ -443,6 +439,8 @@ material_t* translucentMat_t::factory(paraMap_t &params, std::list< paraMap_t > 
 	mat->glossyS = nodeList["glossy_shader"];
 	mat->glossyRefS = nodeList["glossy_reflect_shader"];
 	mat->bumpS = nodeList["bump_shader"];
+	mat->translS = nodeList["sigmaS_shader"];
+	mat->transpS = nodeList["sigmaA_shader"];
 	
 	// solve nodes order
 	if(!roots.empty())
@@ -454,6 +452,8 @@ material_t* translucentMat_t::factory(paraMap_t &params, std::list< paraMap_t > 
 		if(mat->diffuseS) mat->getNodeList(mat->diffuseS, colorNodes);
 		if(mat->glossyS) mat->getNodeList(mat->glossyS, colorNodes);
 		if(mat->glossyRefS) mat->getNodeList(mat->glossyRefS, colorNodes);
+		if(mat->transpS) mat->getNodeList(mat->transpS, colorNodes);
+		if(mat->translS) mat->getNodeList(mat->translS, colorNodes);
 		mat->filterNodes(colorNodes, mat->allViewdep, VIEW_DEP);
 		mat->filterNodes(colorNodes, mat->allViewindep, VIEW_INDEP);
 		if(mat->bumpS) mat->getNodeList(mat->bumpS, mat->bumpNodes);
