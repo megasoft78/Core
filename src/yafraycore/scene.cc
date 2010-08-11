@@ -810,6 +810,9 @@ bool scene_t::update()
 
 bool scene_t::intersect(const ray_t &ray, surfacePoint_t &sp) const
 {
+	static int count = 0;
+	count++;
+
 	PFLOAT dis, Z;
 	intersectData_t data;
 	if(ray.tmax<0) dis=std::numeric_limits<PFLOAT>::infinity();
