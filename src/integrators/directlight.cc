@@ -33,6 +33,7 @@ class YAFRAYPLUGIN_EXPORT directLighting_t: public mcIntegrator_t
 {
 	public:
 		directLighting_t(bool transpShad=false, int shadowDepth=4, int rayDepth=6);
+		~directLighting_t();
 		virtual bool preprocess();
 		virtual colorA_t integrate(renderState_t &state, diffRay_t &ray) const;
 		static integrator_t* factory(paraMap_t &params, renderEnvironment_t &render);
@@ -53,6 +54,11 @@ directLighting_t::directLighting_t(bool transpShad, int shadowDepth, int rayDept
 	intpb = 0;
 	integratorName = "DirectLight";
 	integratorShortName = "DL";
+}
+
+directLighting_t::~directLighting_t()
+{
+	destorySSSMaps();
 }
 
 bool directLighting_t::preprocess()

@@ -40,6 +40,7 @@ class YAFRAYPLUGIN_EXPORT pathIntegrator_t: public mcIntegrator_t
 {
 	public:
 		pathIntegrator_t(bool transpShad=false, int shadowDepth=4);
+		~pathIntegrator_t();
 		virtual bool preprocess();
 		virtual colorA_t integrate(renderState_t &state, diffRay_t &ray/*, sampler_t &sam*/) const;
 		static integrator_t* factory(paraMap_t &params, renderEnvironment_t &render);
@@ -64,6 +65,11 @@ pathIntegrator_t::pathIntegrator_t(bool transpShad, int shadowDepth)
 	no_recursive = false;
 	integratorName = "PathTracer";
 	integratorShortName = "PT";
+}
+
+pathIntegrator_t::~pathIntegrator_t()
+{
+	destorySSSMaps();
 }
 
 bool pathIntegrator_t::preprocess()

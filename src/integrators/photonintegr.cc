@@ -122,6 +122,7 @@ photonIntegrator_t::photonIntegrator_t(unsigned int dPhotons, unsigned int cPhot
 photonIntegrator_t::~photonIntegrator_t()
 {
 	// Empty
+	destorySSSMaps();
 }
 
 bool photonIntegrator_t::preprocess()

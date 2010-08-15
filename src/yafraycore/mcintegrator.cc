@@ -954,6 +954,7 @@ bool mcIntegrator_t::createSSSMaps()
 	pb->setTag("SSS photon map built.");
 	
 	delete lightPowerD;
+	if(!intpb) delete pb;
 	
 	return true;
 }
@@ -1312,10 +1313,21 @@ bool mcIntegrator_t::createSSSMapsByPhotonTracing()
 	std::cout << "absorbed photons: " << absorbCount << std::endl;
 	
 	delete lightPowerD;
+	if(!intpb) delete pb;
 	
 	return true;
 }
 
+bool mcIntegrator_t::destorySSSMaps()
+{
+	std::map<const object3d_t*, photonMap_t*>::iterator it = SSSMaps.begin();
+	while ( it != SSSMaps.end() )
+	{
+		delete (photonMap_t*)(it->second);
+		it++;
+	}
+	SSSMaps.clear();
+}
 
 color_t RdQdRm(const photon_t& inPhoton, const surfacePoint_t &sp, const vector3d_t &wo, float IOR, float g, const color_t &sigmaS, const color_t &sigmaA )
 {
@@ -1504,8 +1516,6 @@ color_t mcIntegrator_t::estimateSSSMaps(renderState_t &state, const surfacePoint
 	_g = dat->g;
 	mTransl = dat->mTransl;
 	
-	//std::cout << "singmaS = " << sigma_s << std::endl;
-	
 	// sum all photon in translucent object
 	std::vector<const photon_t*> photons;
 	sssMap_t->getAllPhotons(sp.P,photons);
@@ -1521,11 +1531,7 @@ color_t mcIntegrator_t::estimateSSSMaps(renderState_t &state, const surfacePoint
 	}
 	
 	sum *= sssScale*sssScale/((float)sssMap_t->nPaths());
-	
-	/*if (sum.energy() > 1.f ) {
-		std::cout << sp.P << std::endl;	
-	}*/
-	
+
 	sum *= diffuseC;
 	sum *= mTransl;
 	
