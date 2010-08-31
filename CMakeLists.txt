@@ -4,7 +4,7 @@ cmake_minimum_required (VERSION 2.6)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMakeModules")
 set(CMAKE_COLOR_MAKEFILE ON)
 set(CMAKE_VERBOSE_MAKEFILE OFF)
-   
+
 ####### Options ########
 option(WITH_Pthreads "Build with POSIX threads wrapper on windows platforms" OFF)
 option(WITH_Freetype "Build font rendering with FreeType" ON)
@@ -106,12 +106,17 @@ if (WITH_YAF_PY_BINDINGS OR WITH_YAF_RUBY_BINDINGS)
 	endif(NOT SWIG_FOUND)
 endif (WITH_YAF_PY_BINDINGS OR WITH_YAF_RUBY_BINDINGS)
 
-if(WITH_OpenEXR)
-	find_package(OpenEXR REQUIRED)
-	message("Using OpenEXR: yes")
-else(WITH_OpenEXR)
-	message("Using OpenEXR: no")
-endif(WITH_OpenEXR)
+# Python bindings
+if (WITH_YAF_PY_BINDINGS)
+	find_package(PythonLibs REQUIRED)
+	find_package(PythonInterp REQUIRED)
+
+	if (NOT PYTHON_LIBRARY OR NOT PYTHON_EXECUTABLE)
+		message("Python wasn't found, please install it to build python bindings")
+		set(WITH_YAF_PY_BINDINGS OFF)
+	endif (NOT PYTHON_LIBRARY OR NOT PYTHON_EXECUTABLE)
+
+endif (WITH_YAF_PY_BINDINGS)
 
 if(WITH_JPEG)
 	find_package(JPEG REQUIRED)
@@ -280,6 +285,10 @@ else(NOT WIN32)
 		set(YAF_PLUGIN_DIR ${YAF_LIB_DIR}/plugins)
 	endif(NOT YAF_PLUGIN_DIR)
 endif(NOT WIN32)
+
+if (USER_INSTALL_PREFIX)
+	set(CMAKE_INSTALL_PREFIX ${USER_INSTALL_PREFIX})
+endif (USER_INSTALL_PREFIX)
 
 if (USER_RELFLAGS)
 	set(CMAKE_CXX_FLAGS_RELEASE "${YAF_CXX_FLAGS_RELEASE} ${USER_RELFLAGS}" CACHE STRING "Release compiler flags" FORCE)
