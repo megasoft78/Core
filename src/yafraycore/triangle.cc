@@ -53,8 +53,8 @@ void triangle_t::getSurface(surfacePoint_t &sp, const point3d_t &hit, intersectD
 			invdet = 1.f / det;
 			vector3d_t dp1 = mesh->points[pa] - mesh->points[pc];
 			vector3d_t dp2 = mesh->points[pb] - mesh->points[pc];
-			sp.dPdU = (dv2 * dp1 - dv1 * dp2) * invdet;
-			sp.dPdV = (du1 * dp2 - du2 * dp1) * invdet;
+			sp.dPdU = (dv2 * invdet) * dp1 - (dv1 * invdet) * dp2;
+			sp.dPdV = (du1 * invdet) * dp2 - (du2 * invdet) * dp1;
 		}
 		else
 		{
