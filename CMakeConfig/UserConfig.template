@@ -259,10 +259,10 @@ set(EMBED_FONT_QT OFF)
 
 #                                                                              #
 # Shadow bias                                                                  #
-# Default: 0.00005                                                             #
+# Default: 0.0005                                                              #
 #                                                                              #
 
-#set(YAF_SHADOW_BIAS 0.00005)
+#set(YAF_SHADOW_BIAS 0.0005)
 
 ################################# End of file ##################################
 
