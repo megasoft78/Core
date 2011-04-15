@@ -4,7 +4,7 @@
  *
  *		Created on: 20/03/2009
  *
- *  	Based on the original implementation by Mathias Wein (Lynx), anyone else???
+ *  	Based on the original implementation by Alejandro Conty (jandro), Mathias Wein (Lynx), anyone else???
  *  	Actual implementation by Rodrigo Placencia (Darktide)
  *
  * 		Based on 'A Practical Analytic Model For DayLight" by Preetham, Shirley & Smits.
@@ -21,8 +21,8 @@
 #include <core_api/scene.h>
 #include <core_api/light.h>
 
-#include "ColorConv.h"
-#include "spectralData.h"
+#include <utilities/ColorConv.h>
+#include <utilities/spectralData.h>
 #include <utilities/curveUtils.h>
 
 __BEGIN_YAFRAY
@@ -43,7 +43,6 @@ class darkSkyBackground_t: public background_t
 		double PerezFunction(const double *lam, double cosTheta, double gamma, double cosGamma, double lvz) const;
 		double prePerez(const double *perez);
 
-		color_t getSunColorFromPerez();
 		color_t getSunColorFromSunRad();
 
 		vector3d_t sunDir;
@@ -142,18 +141,6 @@ color_t darkSkyBackground_t::getAttenuatedSunColor()
 	return lightColor;
 }
 
-color_t darkSkyBackground_t::getSunColorFromPerez()
-{
-	double pCosTheta = (thetaS > M_PI_2) ? 1e-6 : cosThetaS;
-	color_t sunColor = convert.fromxyY
-	(
-		(float)PerezFunction(perez_x, pCosTheta, 0.f, 1.0, zenith_x),
-		(float)PerezFunction(perez_y, pCosTheta, 0.f, 1.0, zenith_y),
-		(float)PerezFunction(perez_Y, pCosTheta, 0.f, 1.0, zenith_Y)
-	);
-	return sunColor;
-}
-
 color_t darkSkyBackground_t::getSunColorFromSunRad()
 {
 	int L;
@@ -177,10 +164,10 @@ color_t darkSkyBackground_t::getSunColorFromSunRad()
 	mw = m * w;
 	lm = -m * l;
 	
-	m1 = -0.008735 * m;
-	mB = -B * m;
-	am = -a;
-	m4 = -4.08 ;
+	m1 = -0.008735;
+	mB = -B;
+	am = -a * m;
+	m4 = -4.08 * m;
 	
 	for(L = 380; L < 750; L+=5)
 	{
@@ -191,13 +178,13 @@ color_t darkSkyBackground_t::getSunColorFromSunRad()
 		Rayleigh = fExp(m1 * fPow(uL, m4));
 		Angstrom = fExp(mB * fPow(uL, am));
 		Ozone = fExp(ko(L) * lm);
-		Gas = fExp((-1.41 * kgLm) / fPow(1 + (118.93 * kgLm), 0.45));
-		Water = fExp((-0.2385 * kwaLmw) / fPow(1 + (20.07 * kwaLmw), 0.45));
+		Gas = fExp((-1.41 * kgLm) / fPow(1 + 118.93 * kgLm, 0.45));
+		Water = fExp((-0.2385 * kwaLmw) / fPow(1 + 20.07 * kwaLmw, 0.45));
 		spdf = sunRadianceCurve(L) * Rayleigh * Angstrom * Ozone * Gas * Water;
 		color_t waveColor = chromaMatch(L) * spdf;
 		sXYZ += convert.fromXYZ(waveColor, true) * 1.33333333333333333333e-2;
 	}
-	return sXYZ * 0.2;
+	return sXYZ * (1.f / sXYZ.maximum());
 }
 
 darkSkyBackground_t::~darkSkyBackground_t()
