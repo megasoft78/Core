@@ -42,7 +42,7 @@ public:
 		recursiveLookup(&root, treeBound, p, process);
 		lock.unlock();
 	}
-private:
+protected:
 	void recursiveAdd(octNode_t<NodeData> *node, const bound_t &nodeBound,
 		const NodeData &dataItem, const bound_t &dataBound, float diag2,
 		int depth = 0);
@@ -53,7 +53,7 @@ private:
 	int maxDepth;
 	bound_t treeBound;
 	octNode_t<NodeData> root;
-	rwlock_t lock;
+	yafthreads::rwlock_t lock;
 };
 
 // octree_t Method Definitions

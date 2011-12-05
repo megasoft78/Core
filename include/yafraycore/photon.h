@@ -53,11 +53,7 @@ class photon_t
 		photon_t() {/*theta=255;*/};
 		photon_t(const vector3d_t &d,const point3d_t &p, const color_t &col)
 		{
-#ifdef _SMALL_PHOTONS
 			direction(d);
-#else
-			dir=d;
-#endif
 			pos=p;
 			c=col;
 		};

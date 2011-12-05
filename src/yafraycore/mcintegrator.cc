@@ -42,21 +42,21 @@ inline color_t mcIntegrator_t::estimateAllDirectLight(renderState_t &state, cons
 		col += doLightEstimation(state, (*l), sp, wo, loffs);
 		loffs++;
 	}
-	
+
 	return col;
 }
 
 inline color_t mcIntegrator_t::estimateOneDirectLight(renderState_t &state, const surfacePoint_t &sp, vector3d_t wo, int n) const
 {
 	int lightNum = lights.size();
-	
+
 	if(lightNum == 0) return color_t(0.f); //??? if you get this far the lights must be >= 1 but, what the hell... :)
-	
+
 	Halton hal2(2);
 	hal2.setStart(n-1);
-	
+
 	int lnum = std::min((int)(hal2.getNext() * (float)lightNum), lightNum - 1);
-	
+
 	return doLightEstimation(state, lights[lnum], sp, wo, lnum) * lightNum;
 	//return col * nLights;
 }
@@ -108,13 +108,13 @@ inline color_t mcIntegrator_t::doLightEstimation(renderState_t &state, light_t *
 			// ...get sample val...
 			ls.s1 = hal2.getNext();
 			ls.s2 = hal3.getNext();
-			
+
 			if( light->illumSample (sp, ls, lightRay) )
 			{
 				// ...shadowed...
 				lightRay.tmin = YAF_SHADOW_BIAS; // < better add some _smart_ self-bias value...this is bad.
 				shadowed = (trShad) ? scene->isShadowed(state, lightRay, sDepth, scol) : scene->isShadowed(state, lightRay);
-				
+
 				if(!shadowed && ls.pdf > 1e-6f)
 				{
 					if(trShad) ls.col *= scol;
@@ -151,14 +151,14 @@ bool mcIntegrator_t::createCausticMap()
 	causticMap.clear();
 	ray_t ray;
 	std::vector<light_t *> causLights;
-	
+
 	for(unsigned int i=0;i<lights.size();++i)
 	{
 		if(lights[i]->shootsCausticP())
 		{
 			causLights.push_back(lights[i]);
 		}
-		
+
 	}
 
 	int numLights = causLights.size();
@@ -173,10 +173,10 @@ bool mcIntegrator_t::createCausticMap()
 		float *energies = new float[numLights];
 		for(int i=0;i<numLights;++i) energies[i] = causLights[i]->totalEnergy().energy();
 		pdf1D_t *lightPowerD = new pdf1D_t(energies, numLights);
-		
+
 		Y_INFO << integratorName << ": Light(s) photon color testing for caustics map:" << yendl;
 		color_t pcol(0.f);
-		
+
 		for(int i=0;i<numLights;++i)
 		{
 			pcol = causLights[i]->emitPhoton(.5, .5, .5, .5, ray, lightPdf);
@@ -184,7 +184,7 @@ bool mcIntegrator_t::createCausticMap()
 			pcol *= fNumLights*lightPdf/lightNumPdf; //remember that lightPdf is the inverse of the pdf, hence *=...
 			Y_INFO << integratorName << ": Light [" << i+1 << "] Photon col:" << pcol << " | lnpdf: " << lightNumPdf << yendl;
 		}
-		
+
 		delete[] energies;
 
 		int pbStep;
@@ -208,18 +208,18 @@ bool mcIntegrator_t::createCausticMap()
 			s2 = scrHalton(2, curr);
 			s3 = scrHalton(3, curr);
 			s4 = scrHalton(4, curr);
-			
+
 			sL = float(curr) / float(nCausPhotons);
-			
+
 			int lightNum = lightPowerD->DSample(sL, &lightNumPdf);
-			
+
 			if(lightNum >= numLights)
 			{
 				Y_ERROR << integratorName << ": lightPDF sample error! " << sL << "/" << lightNum << yendl;
 				delete lightPowerD;
 				return false;
 			}
-			
+
 			color_t pcol = causLights[lightNum]->emitPhoton(s1, s2, s3, s4, ray, lightPdf);
 			ray.tmin = MIN_RAYDIST;
 			ray.tmax = -1.0;
@@ -236,7 +236,7 @@ bool mcIntegrator_t::createCausticMap()
 			bool directPhoton = true;
 			const material_t *material = 0;
 			const volumeHandler_t *vol = 0;
-			
+
 			while( scene->intersect(ray, *hit2) )
 			{
 				if(isnan(pcol.R) || isnan(pcol.G) || isnan(pcol.B))
@@ -313,16 +313,16 @@ bool mcIntegrator_t::createCausticMap()
 		Y_INFO << integratorName << ": Done." << yendl;
 		Y_INFO << integratorName << ": Shot " << curr << " caustic photons from " << numLights <<" light(s)." << yendl;
 		Y_INFO << integratorName << ": Stored caustic photons: " << causticMap.nPhotons() << yendl;
-		
+
 		delete lightPowerD;
-		
+
 		if(causticMap.nPhotons() > 0)
 		{
 			pb->setTag("Building caustic photons kd-tree...");
 			causticMap.updateTree();
 			Y_INFO << integratorName << ": Done." << yendl;
 		}
-		
+
 		if(!intpb) delete pb;
 
 	}
@@ -337,18 +337,18 @@ bool mcIntegrator_t::createCausticMap()
 inline color_t mcIntegrator_t::estimateCausticPhotons(renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo) const
 {
 	if(!causticMap.ready()) return color_t(0.f);
-	
+
 	foundPhoton_t *gathered = new foundPhoton_t[nCausSearch];//(foundPhoton_t *)alloca(nCausSearch * sizeof(foundPhoton_t));
 	int nGathered = 0;
-	
+
 	float gRadiusSquare = causRadius * causRadius;
-	
+
 	nGathered = causticMap.gather(sp.P, gathered, nCausSearch, gRadiusSquare);
-	
-	gRadiusSquare = 1.f / gRadiusSquare; 
-	
+
+	gRadiusSquare = 1.f / gRadiusSquare;
+
 	color_t sum(0.f);
-	
+
 	if(nGathered > 0)
 	{
 		const material_t *material = sp.material;
@@ -365,9 +365,9 @@ inline color_t mcIntegrator_t::estimateCausticPhotons(renderState_t &state, cons
 		}
 		sum *= 1.f / ( float(causticMap.nPaths()) );
 	}
-	
+
 	delete [] gathered;
-	
+
 	return sum;
 }
 
@@ -377,7 +377,7 @@ inline void mcIntegrator_t::recursiveRaytrace(renderState_t &state, diffRay_t &r
 	spDifferentials_t spDiff(sp, ray);
 
     state.raylevel++;
-    
+
 	if(state.raylevel <= rDepth)
 	{
 		Halton hal2(2);
@@ -401,7 +401,7 @@ inline void mcIntegrator_t::recursiveRaytrace(renderState_t &state, diffRay_t &r
 			const volumeHandler_t *vol;
 			diffRay_t refRay;
 			float W = 0.f;
-			
+
 			for(int ns=0; ns<dsam; ++ns)
 			{
 				state.wavelength = (ns + ss1)*d_1;
@@ -412,7 +412,7 @@ inline void mcIntegrator_t::recursiveRaytrace(renderState_t &state, diffRay_t &r
 				++branch;
 				sample_t s(0.5f, 0.5f, BSDF_REFLECT|BSDF_TRANSMIT|BSDF_DISPERSIVE);
 				color_t mcol = material->sample(state, sp, wo, wi, s, W);
-				
+
 				if(s.pdf > 1.0e-6f && (s.sampledFlags & BSDF_DISPERSIVE))
 				{
 					state.chromatic = false;
@@ -423,13 +423,13 @@ inline void mcIntegrator_t::recursiveRaytrace(renderState_t &state, diffRay_t &r
 					state.chromatic = true;
 				}
 			}
-			
+
 			if((bsdfs&BSDF_VOLUMETRIC) && (vol=material->getVolumeHandler(sp.Ng * refRay.dir < 0)))
 			{
 				vol->transmittance(state, refRay, vcol);
 				dcol *= vcol;
 			}
-			
+
 			col += dcol * d_1;
 			state.rayDivision = oldDivision;
 			state.rayOffset = oldOffset;
@@ -468,7 +468,7 @@ inline void mcIntegrator_t::recursiveRaytrace(renderState_t &state, diffRay_t &r
 
 				float s1 = hal2.getNext();
 				float s2 = hal3.getNext();
-				
+
 				float W = 0.f;
 
 				sample_t s(s1, s2, BSDF_ALL_GLOSSY);
@@ -509,12 +509,12 @@ inline void mcIntegrator_t::recursiveRaytrace(renderState_t &state, diffRay_t &r
 				diffRay_t refRay(sp.P, dir[0], MIN_RAYDIST);
 				spDiff.reflectedRay(ray, refRay);
 				color_t integ = integrate(state, refRay);
-				
+
 				if((bsdfs&BSDF_VOLUMETRIC) && (vol=material->getVolumeHandler(sp.Ng * refRay.dir < 0)))
 				{
 					if(vol->transmittance(state, refRay, vcol)) integ *= vcol;
 				}
-				
+
 				col += integ * rcol[0];
 			}
 			if(refract)
@@ -522,12 +522,12 @@ inline void mcIntegrator_t::recursiveRaytrace(renderState_t &state, diffRay_t &r
 				diffRay_t refRay(sp.P, dir[1], MIN_RAYDIST);
 				spDiff.refractedRay(ray, refRay, material->getMatIOR());
 				colorA_t integ = integrate(state, refRay);
-				
+
 				if((bsdfs&BSDF_VOLUMETRIC) && (vol=material->getVolumeHandler(sp.Ng * refRay.dir < 0)))
 				{
 					if(vol->transmittance(state, refRay, vcol)) integ *= vcol;
 				}
-				
+
 				col += (color_t)integ * rcol[1];
 				alpha = integ.A;
 			}
@@ -544,12 +544,12 @@ color_t mcIntegrator_t::sampleAmbientOcclusion(renderState_t &state, const surfa
 	const material_t *material = sp.material;
 	ray_t lightRay;
 	lightRay.from = sp.P;
-	
+
 	int n = aoSamples;
 	if(state.rayDivision > 1) n = std::max(1, n / state.rayDivision);
 
 	unsigned int offs = n * state.pixelSample + state.samplingOffs;
-	
+
 	Halton hal2(2);
 	Halton hal3(3);
 
@@ -560,28 +560,28 @@ color_t mcIntegrator_t::sampleAmbientOcclusion(renderState_t &state, const surfa
 	{
 		float s1 = hal2.getNext();
 		float s2 = hal3.getNext();
-		
+
 		if(state.rayDivision > 1)
 		{
 			s1 = addMod1(s1, state.dc1);
 			s2 = addMod1(s2, state.dc2);
 		}
-		
+
 		lightRay.tmin = YAF_SHADOW_BIAS; // < better add some _smart_ self-bias value...this is still bad...
 		lightRay.tmax = aoDist;
-		
+
 		float W = 0.f;
-		
+
 		sample_t s(s1, s2, BSDF_GLOSSY | BSDF_DIFFUSE | BSDF_REFLECT );
 		surfCol = material->sample(state, sp, wo, lightRay.dir, s, W);
-		
+
 		if(material->getFlags() & BSDF_EMIT)
 		{
 			col += material->emit(state, sp, wo) * s.pdf;
 		}
-		
+
 		shadowed = (trShad) ? scene->isShadowed(state, lightRay, sDepth, scol) : scene->isShadowed(state, lightRay);
-		
+
 		if(!shadowed)
 		{
 			float cos = std::fabs(sp.N * lightRay.dir);
@@ -589,8 +589,95 @@ color_t mcIntegrator_t::sampleAmbientOcclusion(renderState_t &state, const surfa
 			else col += aoCol * surfCol * cos * W;
 		}
 	}
-	
+
 	return col / (float)n;
+}
+
+void mcIntegrator_t::setICRecord(renderState_t &state, diffRay_t &ray, icRec_t *record) const {
+	if (!ray.hasDifferentials)
+		Y_INFO << "ERROR: ray from mcIntegrator_t::createNewICRecord() should have differentials" << std::endl;
+	float oldRayLength[record->getM()];
+	color_t oldRad[record->getM()];
+	// we set the projected pixel area on the surface point
+	record->setPixelArea(ray);
+	ray_t sRay; // ray from hitpoint to hemisphere sample direction
+	sRay.from = record->P;
+	color_t innerRotValues;
+	color_t innerTransValuesU;
+	color_t innerTransValuesV;
+	color_t radiance;
+	unsigned int offs = 8 * state.pixelSample /*+ state.samplingOffs*/;
+	record->stratHemi->randomize();
+	for (int k=0; k<record->getN(); k++) {
+		innerRotValues.black();
+		innerTransValuesU.black();
+		innerTransValuesV.black();
+		for (int j=0; j<record->getM(); j++) {
+			// Calculate each incoming radiance of hemisphere at point icRecord
+			sRay.dir = record->getSampleHemisphere(j, k, offs);
+			radiance = getRadiance(state, sRay);
+			// note: oldRad[j] and oldRayLength[j] means L_j,k-1 and r_j,k-1 respectively
+			//       oldRad[j-1] and oldRayLength[j-1] means L_j-1,k and r_j-1,k respectively
+			if (k>0) {
+				if (j>0) {
+					// cos2(theta_j-)sin(theta_j-) * (L_j,k - L_j-1,k) / min(r_j,k , r_j-1,k)
+					float cosThetaMin = record->stratHemi->getCosThetaMinus(j);
+					innerTransValuesU +=
+							( (cosThetaMin*cosThetaMin) * (radiance - oldRad[j-1]) )/
+							(fmin(sRay.tmax, oldRayLength[j-1])) ;
+					// cos(theta_j)[cos(theta_j-) - cos(theta_j+)] * (L_j,k - L_j,k-1) / [sin(theta_j,k) * min(r_j,k , r_j-1,k)]
+					innerTransValuesV +=
+							( record->stratHemi->getCosTheta(j) * (cosThetaMin - record->stratHemi->getCosThetaPlus(j)) *
+								(radiance - oldRad[j]) ) /
+							(record->stratHemi->getSinTheta(j) * fmin(sRay.tmax, oldRayLength[j]));
+				}
+			}
+			record->irr += radiance;
+			record->changeSampleRadius(sRay.tmax);
+			// copy new rays and irradiance values over old ones
+			oldRad[j] = radiance;
+			oldRayLength[j] = sRay.tmax;
+			innerRotValues -= record->stratHemi->getTanTheta(j) * radiance;
+		}
+		vector3d_t vk(record->stratHemi->getVk(k));
+		record->rotGrad[0] += vk * innerRotValues.R;
+		record->rotGrad[1] += vk * innerRotValues.G;
+		record->rotGrad[2] += vk * innerRotValues.B;
+		vector3d_t uk(record->stratHemi->getUk(k));
+		vector3d_t vkm(record->stratHemi->getVkMinus(k));
+		record->transGrad[0] +=
+				( (innerTransValuesU.R * M_2PI / (float)record->getN() ) * uk ) +
+				( innerTransValuesV.R * vkm );
+		record->transGrad[1] +=
+				( (innerTransValuesU.G * M_2PI / (float)record->getN() ) * uk ) +
+				( innerTransValuesV.G * vkm );
+		record->transGrad[2] +=
+				( (innerTransValuesU.B * M_2PI / (float)record->getN() ) * uk ) +
+				( innerTransValuesV.B * vkm );
+	}
+	float k = M_PI / ((float)record->getM() * (float)record->getN());
+	record->irr = record->irr * k;
+	for (int i=0; i<3; i++) {
+		record->rotGrad[i] = changeBasis(
+				record->rotGrad[i] * k,
+				record->NU,
+				record->NV,
+				record->getNup());
+		record->transGrad[i] = changeBasis(
+				record->transGrad[i],
+				record->NU,
+				record->NV,
+				record->getNup());
+	}
+	// HEURISTICS
+	record->clampRbyGradient();
+	if (ray.hasDifferentials)
+		record->clampRbyScreenSpace();
+	record->clampGradient();
+}
+
+void mcIntegrator_t::cleanup() {
+	// do nothing, if IC implemented, may call the xml dump saving function
 }
 
 __END_YAFRAY
