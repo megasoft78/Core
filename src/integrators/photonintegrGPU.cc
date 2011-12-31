@@ -223,11 +223,12 @@ inline color_t photonIntegratorGPU_t::estimateOneDirect(renderState_t &state, co
 		}
 		if(canIntersect) // sample from BSDF to complete MIS
 		{
+		    float W = 0.f;
 			ray_t bRay;
 			bRay.tmin = YAF_SHADOW_BIAS;
 			bRay.from = sp.P;
 			sample_t s(ls.s1, ls.s2, allBSDFIntersect);
-			color_t surfCol = oneMat->sample(state, sp, wo, bRay.dir, s);
+			color_t surfCol = oneMat->sample(state, sp, wo, bRay.dir, s, W);
 			if( s.pdf>1e-6f && light->intersect(bRay, bRay.tmax, lcol, lightPdf) )
 			{
 				shadowed = (trShad) ? scene->isShadowed(state, bRay, sDepth, scol) : scene->isShadowed(state, bRay);
@@ -832,8 +833,10 @@ color_t photonIntegratorGPU_t::finalGathering(renderState_t &state, const surfac
 			s2 = addMod1(s2, state.dc2);
 		}
 
+		float W = 0.f;
+
 		sample_t s(s1, s2, BSDF_DIFFUSE|BSDF_REFLECT|BSDF_TRANSMIT); // glossy/dispersion/specular done via recursive raytracing
-		scol = sp.material->sample(state, sp, wo, phRay.r, s);
+		scol = sp.material->sample(state, sp, wo, phRay.r, s, W);
 
 		if(s.pdf <= 1.0e-6f) {
 			fgs.do_bounce = false;
@@ -941,9 +944,10 @@ color_t photonIntegratorGPU_t::finalGathering(renderState_t &state, const surfac
 			}
 
 			PHRay &phRay = rays[ray_idx];
+			float W = 0.f;
 
 			sample_t sb(s1, s2, (fgs.close) ? BSDF_ALL : BSDF_ALL_SPECULAR | BSDF_FILTER);
-			color_t scol = p_mat->sample(state, fgs.hit, pwo, phRay.r, sb);
+			color_t scol = p_mat->sample(state, fgs.hit, pwo, phRay.r, sb, W);
 
 			if( sb.pdf <= 1.0e-6f)
 			{
@@ -1061,8 +1065,10 @@ color_t photonIntegratorGPU_t::finalGathering_orig(renderState_t &state, const s
 			s2 = addMod1(s2, state.dc2);
 		}
 
+        float W = 0.f;
+
 		sample_t s(s1, s2, BSDF_DIFFUSE|BSDF_REFLECT|BSDF_TRANSMIT); // glossy/dispersion/specular done via recursive raytracing
-		scol = p_mat->sample(state, hit, pwo, pRay.dir, s);
+		scol = p_mat->sample(state, hit, pwo, pRay.dir, s, W);
 
 		if(s.pdf <= 1.0e-6f) continue;
 		scol *= (std::fabs(pRay.dir*sp.N)/s.pdf);
@@ -1124,8 +1130,10 @@ color_t photonIntegratorGPU_t::finalGathering_orig(renderState_t &state, const s
 				s2 = addMod1(s2, state.dc2);
 			}
 			
+			float W = 0.f;
+
 			sample_t sb(s1, s2, (close) ? BSDF_ALL : BSDF_ALL_SPECULAR | BSDF_FILTER);
-			scol = p_mat->sample(state, hit, pwo, pRay.dir, sb);
+			scol = p_mat->sample(state, hit, pwo, pRay.dir, sb, W);
 			
 			if( sb.pdf <= 1.0e-6f)
 			{
@@ -1188,15 +1196,17 @@ bool photonIntegratorGPU_t::getSPfromHit(const diffRay_t &ray, int tri_idx, surf
 
 	const triangle_t *hitt = prims[tri_idx];
 	
+    intersectData_t bary;
+
 	PFLOAT Z;
-	bool hit = hitt->intersect(ray, &Z, (void*)&udat[0]);
+	bool hit = hitt->intersect(ray, &Z, bary);
 	if(!hit) {
 		Y_ERROR << "hit was not computed correctly" << yendl;
 		return false;
 	}
 
 	point3d_t h=ray.from + Z*ray.dir;
-	hitt->getSurface(sp, h, (void*)&udat[0]);
+	hitt->getSurface(sp, h, bary);
 	sp.origin = (triangle_t*)hitt;
 	return true;
 }

@@ -2,10 +2,10 @@ include_directories(${YAF_INCLUDE_DIRS})
 
 add_definitions(-DBUILDING_YAFRAYPLUGIN)
 
-add_library(directlight SHARED directlight.cc)
+add_library(directlight SHARED directlight.cc common.cc)
 target_link_libraries(directlight yafaraycore)
 
-add_library(photonmap SHARED photonintegr.cc)
+add_library(photonmap SHARED photonintegr.cc common.cc)
 target_link_libraries(photonmap yafaraycore)
 
 if(WITH_OPENCL)
@@ -15,7 +15,7 @@ if(WITH_OPENCL)
 	install (TARGETS photonmapGPU ${YAF_TARGET_TYPE} DESTINATION ${YAF_PLUGIN_DIR})
 endif(WITH_OPENCL)
 
-add_library(pathtrace SHARED pathtracer.cc common.cc)
+add_library(pathtrace SHARED pathtracer.cc)
 target_link_libraries(pathtrace yafaraycore)
 
 add_library(bidirpath SHARED bidirpath.cc)

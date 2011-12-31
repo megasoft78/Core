@@ -205,15 +205,6 @@ class YAFRAYCORE_EXPORT scene_t
 		std::vector<light_t *> lights;
 		volumeIntegrator_t *volIntegrator;
 
-		struct objData_t
-		{
-			triangleObject_t *obj;
-			meshObject_t *mobj;
-			std::vector<point3d_t> points;
-			std::vector<normal_t> normals;
-			int type;
-		};
-
 		typedef std::map<objID_t, objData_t> objDataArray_t;
 
 		// TODO: this gives the user the ability to put the scene into an

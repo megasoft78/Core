@@ -22,7 +22,7 @@ option(DEBUG_BUILD "Enable debug build mode" OFF)
 option(EMBED_FONT_QT "Embed font for QT GUI (usefull for some buggy QT installations)" OFF)
 option(WITH_TESTS "Enable building test applications for various components of Yafaray" OFF)
 option(TESTS_ONLY "Build only the test applications, not the rest of the core (implies WITH_TESTS)" OFF)
-option(WITH_OPENCL "Enable the use of OpenCL and GPU accelerated rendering where avaialble" OFF)
+option(WITH_OPENCL "Enable the use of OpenCL and GPU accelerated rendering where avaialble" ON)
 option(WITH_GUI "Enable building the QT GUI " ON)
 
 ###### Packages and Definitions #########
@@ -82,41 +82,39 @@ endif(LIBXML2_FOUND)
 
 find_package(Threads REQUIRED)
 
-if(WITH_GUI)
-	find_package(Qt4 4.4.0 COMPONENTS QtCore QtGui REQUIRED)
+# Find optional libs
+if(CMAKE_HAVE_PTHREAD_H)
+	if(WIN32)
+		if(WITH_Pthreads)
+			add_definitions(-DHAVE_PTHREAD)
+			message("Using Posix Threads: yes")
+		else(WITH_Pthreads)
+			message("Using Posix Threads: no (disabled by user)")
+		endif(WITH_Pthreads)
+	else(WIN32)
+		add_definitions(-DHAVE_PTHREAD)
+		message("Using Posix Threads: yes")
+	endif(WIN32)
+else(CMAKE_HAVE_PTHREAD_H)
+	message("Using Posix Threads: no (not found)")
+endif(CMAKE_HAVE_PTHREAD_H)
 
-	# Qt enabling header
-	include(${QT_USE_FILE})
-endif(WITH_GUI)
+if(WITH_Freetype)
+	find_package(Freetype REQUIRED)
+	message("Using FreeType: yes")
+	if(FREETYPE_FOUND)
+		add_definitions(-DHAVE_FREETYPE)
+	endif(FREETYPE_FOUND)
+else(WITH_Freetype)
+	message("Using FreeType: no")
+endif(WITH_Freetype)
 
-#check for swig if needed
-if (WITH_YAF_PY_BINDINGS OR WITH_YAF_RUBY_BINDINGS)
-	find_package(SWIG REQUIRED)
-	set(YAF_SWIG_MIN_VERSION 1.3.36)
-	if(NOT SWIG_FOUND)
-		message("Swig not found, please install it to build script bindings")
-		set(WITH_YAF_PY_BINDINGS OFF)
-		set(WITH_YAF_RUBY_BINDINGS OFF)
-	else(NOT SWIG_FOUND)
-		if(SWIG_VERSION VERSION_LESS ${YAF_SWIG_MIN_VERSION})
-			message("Swig version < ${YAF_SWIG_MIN_VERSION}, please update or bindings can't be built")
-			set(WITH_YAF_PY_BINDINGS OFF)
-			set(WITH_YAF_RUBY_BINDINGS OFF)
-		endif(SWIG_VERSION VERSION_LESS ${YAF_SWIG_MIN_VERSION})
-	endif(NOT SWIG_FOUND)
-endif (WITH_YAF_PY_BINDINGS OR WITH_YAF_RUBY_BINDINGS)
-
-# Python bindings
-if (WITH_YAF_PY_BINDINGS)
-	find_package(PythonLibs REQUIRED)
-	find_package(PythonInterp REQUIRED)
-
-	if (NOT PYTHON_LIBRARY OR NOT PYTHON_EXECUTABLE)
-		message("Python wasn't found, please install it to build python bindings")
-		set(WITH_YAF_PY_BINDINGS OFF)
-	endif (NOT PYTHON_LIBRARY OR NOT PYTHON_EXECUTABLE)
-
-endif (WITH_YAF_PY_BINDINGS)
+if(WITH_OpenEXR)
+	find_package(OpenEXR REQUIRED)
+	message("Using OpenEXR: yes")
+else(WITH_OpenEXR)
+	message("Using OpenEXR: no")
+endif(WITH_OpenEXR)
 
 if(WITH_JPEG)
 	find_package(JPEG REQUIRED)
@@ -131,6 +129,10 @@ if(WITH_PNG)
 else(WITH_PNG)
 	message("Using PNG: no")
 endif(WITH_PNG)
+
+if (WITH_OPENCL)
+	find_package(OpenCL REQUIRED)
+endif (WITH_OPENCL)
 
 if(WITH_TIFF)
 	find_package(TIFF REQUIRED)
@@ -165,10 +167,6 @@ if(WITH_YAF_RUBY_BINDINGS)
 else(WITH_YAF_RUBY_BINDINGS)
 	message("Building Ruby bindings: no")
 endif(WITH_YAF_RUBY_BINDINGS)
-
-if (WITH_OPENCL)
-	find_package(OpenCL REQUIRED)
-endif (WITH_OPENCL)
 
 if(DEBUG_BUILD)
 	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build mode" FORCE)
@@ -286,10 +284,6 @@ else(NOT WIN32)
 	endif(NOT YAF_PLUGIN_DIR)
 endif(NOT WIN32)
 
-if (USER_INSTALL_PREFIX)
-	set(CMAKE_INSTALL_PREFIX ${USER_INSTALL_PREFIX})
-endif (USER_INSTALL_PREFIX)
-
 if (USER_RELFLAGS)
 	set(CMAKE_CXX_FLAGS_RELEASE "${YAF_CXX_FLAGS_RELEASE} ${USER_RELFLAGS}" CACHE STRING "Release compiler flags" FORCE)
 else (USER_RELFLAGS)
@@ -308,15 +302,9 @@ if (NOT TESTS_ONLY)
 	add_subdirectory(src)
 endif (NOT TESTS_ONLY)
 
-
 if (WITH_TESTS OR TESTS_ONLY)
 	add_subdirectory(test)
 endif (WITH_TESTS OR TESTS_ONLY)
-
-if (WITH_YAF_PY_BINDINGS)
-	include(${SWIG_USE_FILE})
-	add_subdirectory(bindings)
-endif (WITH_YAF_PY_BINDINGS)
 
 # Generating config headers
 

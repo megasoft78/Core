@@ -129,8 +129,8 @@ void photonIntegratorGPU_t::RayTest::list_ray_candidates(bool exact)
 			if(d2 < r2) {
 				if(exact) {
 					PFLOAT t;
-					unsigned char udat2[PRIM_DAT_SIZE];
-					bool good = tri->intersect(ray, &t, udat2);
+					intersectData_t bary;
+					bool good = tri->intersect(ray, &t, bary);
 					if(!good)
 						continue;
 				}
@@ -524,8 +524,8 @@ void photonIntegratorGPU_t::RayTest::from_cand_leaves()
 		const triangle_t *tri = prims[l.tri_idx];
 
 		PFLOAT t;
-		unsigned char udat2[PRIM_DAT_SIZE];
-		bool good = tri->intersect(ray, &t, udat2);
+		intersectData_t bary;
+		bool good = tri->intersect(ray, &t, bary);
 		if(good) {
 			if(t < tmin) {
 				tmin = t;
@@ -573,8 +573,8 @@ void photonIntegratorGPU_t::RayTest::from_tri_idx(int tri_idx)
 	tri_idx_test = tri_idx;
 
 	tri_test = prims[tri_idx];
-	unsigned char udat2[PRIM_DAT_SIZE];
-	hit_test = tri_test->intersect(ray, &t_test, udat2);
+	intersectData_t bary;
+	hit_test = tri_test->intersect(ray, &t_test, bary);
 	set_test = true;
 	if(hit_test) {
 		p_test = ray.from + t_test * ray.dir;

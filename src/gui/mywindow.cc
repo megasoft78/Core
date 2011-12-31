@@ -586,7 +586,10 @@ bool MainWindow::saveDlg()
 		m_lastPath = QDir(fileName).absolutePath();
 
 		imageHandler_t *ih = interf->createImageHandler("saver", false);
-		imageOutput_t *out = new imageOutput_t(ih, m_lastPath.toStdString(), b_x, b_y);
+
+                std::string stdLastPath; 
+                stdLastPath.append(m_lastPath.toAscii().constData());
+		imageOutput_t *out = new imageOutput_t(ih, stdLastPath);
 
 		interf->paramsClearAll();
 

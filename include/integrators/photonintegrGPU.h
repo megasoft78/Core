@@ -9,7 +9,8 @@
 #include <core_api/light.h>
 #include <core_api/imagefilm.h>
 #include <core_api/camera.h>
-#include <yafraycore/tiledintegrator.h>
+#include <core_api/mcintegrator.h>
+#include <core_api/tiledintegrator.h>
 #include <yafraycore/photon.h>
 #include <yafraycore/monitor.h>
 #include <yafraycore/ccthreads.h>
