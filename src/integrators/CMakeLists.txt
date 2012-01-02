@@ -39,13 +39,13 @@ target_link_libraries(SkyIntegrator yafaraycore)
 add_library(sppm SHARED sppm.cc)
 target_link_libraries(sppm yafaraycore)
 
-#add_library(directic SHARED directic.cc)
-#target_link_libraries(directic yafaraycore)
+add_library(directic SHARED directic.cc)
+target_link_libraries(directic yafaraycore)
 
 add_library(photonic SHARED photonic.cc)
 target_link_libraries(photonic yafaraycore)
 
-install (TARGETS directlight photonmap photonic pathtrace bidirpath sppm
+install (TARGETS directlight directic photonmap photonic pathtrace bidirpath sppm
 		EmissionIntegrator SingleScatterIntegrator EmptyVolumeIntegrator
 		DebugIntegrator SkyIntegrator
 		${YAF_TARGET_TYPE} DESTINATION ${YAF_PLUGIN_DIR})

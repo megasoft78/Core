@@ -491,103 +491,13 @@ void tiledIntegrator_t::RenderTile_PrimaryRayGenerator::rays(
 	}
 }
 
-bool tiledIntegrator_t::renderTile(renderArea_t &a, int n_samples, int offset, bool adaptive, int threadID)
-{
-	int x, y;
-	const camera_t* camera = scene->getCamera();
-	bool do_depth = scene->doDepth();
-	x=camera->resX();
-	y=camera->resY();
-	diffRay_t c_ray;
-	ray_t d_ray;
-	PFLOAT dx=0.5, dy=0.5, d1=1.0/(PFLOAT)n_samples;
-	float lens_u = 0.5f, lens_v = 0.5f;
-	PFLOAT wt, wt_dummy;
-	random_t prng(offset*(x*a.Y+a.X)+123);
+bool tiledIntegrator_t::renderTile(
+	renderArea_t &a, int n_samples, int offset, bool adaptive, int threadID
+) {	
+	random_t prng(offset * (scene->getCamera()->resX() * a.Y + a.X) + 123);
 	renderState_t rstate(&prng);
-	rstate.threadID = threadID;
-	rstate.cam = camera;
-	bool sampleLns = camera->sampleLense();
-	int pass_offs=offset, end_x=a.X+a.W, end_y=a.Y+a.H;
-
-	Halton halU(3);
-	Halton halV(5);
-
-	for(int i=a.Y; i<end_y; ++i)
-	{
-		for(int j=a.X; j<end_x; ++j)
-		{
-			if(scene->getSignals() & Y_SIG_ABORT) break;
-
-			if(adaptive)
-			{
-				if(!imageFilm->doMoreSamples(j, i)) continue;
-			}
-
-			rstate.pixelNumber = x*i+j;
-			rstate.samplingOffs = fnv_32a_buf(i*fnv_32a_buf(j));//fnv_32a_buf(rstate.pixelNumber);
-			float toff = scrHalton(5, pass_offs+rstate.samplingOffs); // **shall be just the pass number...**
-
-			halU.setStart(pass_offs+rstate.samplingOffs);
-			halV.setStart(pass_offs+rstate.samplingOffs);
-
-			for(int sample=0; sample<n_samples; ++sample)
-			{
-				rstate.setDefaults();
-				rstate.pixelSample = pass_offs+sample;
-				rstate.time = addMod1((PFLOAT)sample*d1, toff);//(0.5+(PFLOAT)sample)*d1;
-
-				// the (1/n, Larcher&Pillichshammer-Seq.) only gives good coverage when total sample count is known
-				// hence we use scrambled (Sobol, van-der-Corput) for multipass AA
-				if(AA_passes>1)
-				{
-					dx = RI_vdC(rstate.pixelSample, rstate.samplingOffs);
-					dy = RI_S(rstate.pixelSample, rstate.samplingOffs);
-				}
-				else if(n_samples > 1)
-				{
-					dx = (0.5+(PFLOAT)sample)*d1;
-					dy = RI_LP(sample+rstate.samplingOffs);
-				}
-				if(sampleLns)
-				{
-					lens_u = halU.getNext();
-					lens_v = halV.getNext();
-				}
-				c_ray = camera->shootRay(j+dx, i+dy, lens_u, lens_v, wt);
-				if(wt==0.0)
-				{
-					imageFilm->addSample(colorA_t(0.f), j, i, dx, dy, &a);
-					continue;
-				}
-				//setup ray differentials
-				d_ray = camera->shootRay(j+1+dx, i+dy, lens_u, lens_v, wt_dummy);
-				c_ray.xfrom = d_ray.from;
-				c_ray.xdir = d_ray.dir;
-				d_ray = camera->shootRay(j+dx, i+1+dy, lens_u, lens_v, wt_dummy);
-				c_ray.yfrom = d_ray.from;
-				c_ray.ydir = d_ray.dir;
-				c_ray.time = rstate.time;
-				c_ray.hasDifferentials = true;
-	// col = T * L_o + L_v
-				colorA_t col = integrate(rstate, c_ray); // L_o
-	col *= scene->volIntegrator->transmittance(rstate, c_ray); // T
-	col += scene->volIntegrator->integrate(rstate, c_ray); // L_v
-				imageFilm->addSample(wt * col, j, i, dx, dy, &a);
-
-	if(do_depth)
-	{
-		float depth = 0.f;
-		if(c_ray.tmax > 0.f)
-		{
-						depth = 1.f - (c_ray.tmax - minDepth) * maxDepth; // Distance normalization
-		}
-
-		imageFilm->addDepthSample(0, depth, j, i, dx, dy);
-	}
-}
-		}
-	}
+	RenderTile_PrimaryRayGenerator raygen(a, n_samples, offset, adaptive, threadID, this, rstate);
+	raygen.genRays();
 	return true;
 }
 
