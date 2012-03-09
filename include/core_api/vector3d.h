@@ -52,7 +52,7 @@ class point3d_t;
 class YAFRAYCORE_EXPORT vector3d_t
 {
 	public:
-		vector3d_t(): x(0.f), y(0.f), z(0.f) { }
+		vector3d_t() { }
 		vector3d_t(PFLOAT v): x(v), y(v), z(v) {  }
 		vector3d_t(PFLOAT ix, PFLOAT iy, PFLOAT iz=0): x(ix), y(iy), z(iz) { }
 		vector3d_t(const vector3d_t &s): x(s.x), y(s.y), z(s.z) { }

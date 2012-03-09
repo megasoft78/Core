@@ -4,7 +4,7 @@ cmake_minimum_required (VERSION 2.6)
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMakeModules")
 set(CMAKE_COLOR_MAKEFILE ON)
 set(CMAKE_VERBOSE_MAKEFILE OFF)
-
+   
 ####### Options ########
 option(WITH_Pthreads "Build with POSIX threads wrapper on windows platforms" OFF)
 option(WITH_Freetype "Build font rendering with FreeType" ON)
@@ -23,7 +23,6 @@ option(EMBED_FONT_QT "Embed font for QT GUI (usefull for some buggy QT installat
 option(WITH_TESTS "Enable building test applications for various components of Yafaray" OFF)
 option(TESTS_ONLY "Build only the test applications, not the rest of the core (implies WITH_TESTS)" OFF)
 option(WITH_OPENCL "Enable the use of OpenCL and GPU accelerated rendering where avaialble" ON)
-option(WITH_GUI "Enable building the QT GUI " ON)
 
 ###### Packages and Definitions #########
 

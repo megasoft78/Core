@@ -15,7 +15,7 @@ class YAFRAYCORE_EXPORT tiledIntegrator_t: public surfaceIntegrator_t
 		virtual void preRender(); //!< Called before the render starts and after the minDepth and maxDepth are calculated
 		virtual void prePass(int samples, int offset, bool adaptive); //!< Called before the proper rendering of all the tiles starts
 		virtual void preTile(renderArea_t &a, int n_samples, int offset, bool adaptive, int threadID); //!< Called brfore each tile is rendered
-
+		
 		/*! do whatever is required to render the image; default implementation renders image in passes
 		dividing each pass into tiles for multithreading. */
 		virtual bool render(imageFilm_t *imageFilm);
@@ -75,6 +75,7 @@ class YAFRAYCORE_EXPORT tiledIntegrator_t: public surfaceIntegrator_t
 		imageFilm_t *imageFilm;
 		float maxDepth; //!< Inverse of max depth from camera within the scene boundaries
 		float minDepth; //!< Distance between camera and the closest object on the scene
+
 };
 
 #ifdef USING_THREADS

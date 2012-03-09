@@ -42,8 +42,7 @@ class YAFRAYCORE_EXPORT integrator_t
 	public:
 		//! this MUST be called before any other member function!
 		void setScene(scene_t *s) { scene=s; }
-		virtual void onSceneUpdate() {} // called before the scene is updated
-		/*! do whatever is required to render the image, if suitable for integrating whole image */
+		virtual void onSceneUpdate() {} // called before the scene is updated		/*! do whatever is required to render the image, if suitable for integrating whole image */
 		virtual bool render(imageFilm_t *imageFilm) { return false; }
 		virtual void setProgressBar(progressBar_t *pb) { intpb = pb; }
 		virtual std::string getSettings() const { return settings; }
@@ -52,9 +51,7 @@ class YAFRAYCORE_EXPORT integrator_t
 		virtual ~integrator_t() {}
 		enum TYPE { SURFACE, VOLUME };
 		TYPE integratorType(){ return type; }
-
-		integrator_t() : scene(NULL), intpb(NULL) { }
-	protected:
+		integrator_t() : scene(NULL), intpb(NULL) { }	protected:
 		TYPE type;
 		scene_t *scene;
 		progressBar_t *intpb;
@@ -85,7 +82,7 @@ class YAFRAYCORE_EXPORT volumeIntegrator_t: public integrator_t
 		virtual colorA_t transmittance(renderState_t &state, ray_t &ray) const = 0;
 		virtual colorA_t integrate(renderState_t &state, ray_t &ray) const = 0;
 		virtual bool preprocess() { return true; }
-
+	
 	protected:
 };
 

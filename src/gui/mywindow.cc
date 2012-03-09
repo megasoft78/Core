@@ -545,10 +545,7 @@ bool MainWindow::saveDlg()
 
 	for (size_t i = 0; i < formatList.size(); ++i)
 	{
-          const char *desc = formatDesc[i].c_str();
-          const char *form = formatList[i].c_str();
-          formats += QString(desc) + " (*." + QString(form) + ")";
-		//formats += QString::fromStdString(desc) + " (*." + QString::fromStdString(form) + ")";
+		formats += QString::fromStdString(formatDesc[i]) + " (*." + QString::fromStdString(formatList[i]) + ")";
 		if(i < formatList.size() - 1 ) formats += ";;";
 	}
 
@@ -575,9 +572,7 @@ bool MainWindow::saveDlg()
 	{
 		using namespace yafaray;
 		interf->paramsClearAll();
-                std::string stdSelectedFilter;
-                stdSelectedFilter.append(selectedFilter.toAscii().constData());
-		interf->paramsSetString("type", stdSelectedFilter.c_str());
+		interf->paramsSetString("type", selectedFilter.toStdString().c_str());
 		interf->paramsSetInt("width", res_x);
 		interf->paramsSetInt("height", res_y);
 		interf->paramsSetBool("alpha_channel", saveWithAlpha);
@@ -586,10 +581,7 @@ bool MainWindow::saveDlg()
 		m_lastPath = QDir(fileName).absolutePath();
 
 		imageHandler_t *ih = interf->createImageHandler("saver", false);
-
-                std::string stdLastPath; 
-                stdLastPath.append(m_lastPath.toAscii().constData());
-		imageOutput_t *out = new imageOutput_t(ih, stdLastPath);
+		imageOutput_t *out = new imageOutput_t(ih, m_lastPath.toStdString(), b_x, b_y);
 
 		interf->paramsClearAll();
 

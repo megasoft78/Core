@@ -104,7 +104,7 @@ bool pathIntegrator_t::preprocess()
 	}
 	
 	settings = set.str();
-
+	
 	return success;
 }
 
