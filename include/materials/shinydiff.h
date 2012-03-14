@@ -19,7 +19,7 @@ __BEGIN_YAFRAY
 	is substracted.
 		l"' =  l"*(1.0 - translucency)
 	The remaining (l"') light is either reflected diffuse or absorbed.
-	
+
 */
 
 class shinyDiffuseMat_t: public nodeMaterial_t
@@ -37,8 +37,10 @@ class shinyDiffuseMat_t: public nodeMaterial_t
 		virtual void getSpecular(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo,
 								bool &reflect, bool &refract, vector3d_t *const dir, color_t *const col)const;
 		virtual CFLOAT getAlpha(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo)const;
-		
+
 		static material_t* factory(paraMap_t &params, std::list<paraMap_t> &eparams, renderEnvironment_t &render);
+		bool scatterPhoton(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wi, vector3d_t &wo, pSample_t &s) const;
+
 		struct SDDat_t
 		{
 			float component[4];
@@ -50,7 +52,7 @@ class shinyDiffuseMat_t: public nodeMaterial_t
 		void getFresnel(const vector3d_t &wo, const vector3d_t &N, float &Kr) const;
 		CFLOAT OrenNayar(const vector3d_t &wi, const vector3d_t &wo, const vector3d_t &N) const;
 		void initOrenNayar(double sigma);
-		
+
 		bool isTranspar;
 		bool isTransluc;
 		bool isReflective; //!< refers to mirror reflection

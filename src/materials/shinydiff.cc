@@ -151,18 +151,18 @@ void shinyDiffuseMat_t::initBSDF(const renderState_t &state, const surfacePoint_
 	dat->nodeStack = (char*)state.userdata + sizeof(SDDat_t);
 	//create our "stack" to save node results
 	nodeStack_t stack(dat->nodeStack);
-	
+
 	//bump mapping (extremely experimental)
 	if(bumpS)
 	{
 		evalBump(stack, state, sp, bumpS);
 	}
-	
+
 	//eval viewindependent nodes
 	std::vector<shaderNode_t *>::const_iterator iter, end=allViewindep.end();
 	for(iter = allViewindep.begin(); iter!=end; ++iter) (*iter)->eval(stack, state, sp);
 	bsdfTypes=bsdfFlags;
-	
+
 	getComponents(viNodes, stack, dat->component);
 }
 
@@ -179,16 +179,16 @@ CFLOAT shinyDiffuseMat_t::OrenNayar(const vector3d_t &wi, const vector3d_t &wo, 
 	PFLOAT cos_ti = std::max(-1.f,std::min(1.f,N*wi));
 	PFLOAT cos_to = std::max(-1.f,std::min(1.f,N*wo));
 	CFLOAT maxcos_f = 0.f;
-	
+
 	if(cos_ti < 0.9999f && cos_to < 0.9999f)
 	{
 		vector3d_t v1 = (wi - N*cos_ti).normalize();
 		vector3d_t v2 = (wo - N*cos_to).normalize();
 		maxcos_f = std::max(0.f, v1*v2);
 	}
-	
+
 	CFLOAT sin_alpha, tan_beta;
-	
+
 	if(cos_to >= cos_ti)
 	{
 		sin_alpha = fSqrt(1.f - cos_ti*cos_ti);
@@ -199,7 +199,7 @@ CFLOAT shinyDiffuseMat_t::OrenNayar(const vector3d_t &wi, const vector3d_t &wo, 
 		sin_alpha = fSqrt(1.f - cos_to*cos_to);
 		tan_beta = fSqrt(1.f - cos_ti*cos_ti) / (cos_ti == 0.f)?1e-8f:cos_ti; // white (black on windows) dots fix for oren-nayar, could happen with bad normals
 	}
-	
+
 	return A + B * maxcos_f * sin_alpha * tan_beta;
 }
 
@@ -211,21 +211,21 @@ color_t shinyDiffuseMat_t::eval(const renderState_t &state, const surfacePoint_t
 	// face forward:
 	vector3d_t N = FACE_FORWARD(sp.Ng, sp.N, wo);
 	if(!(bsdfs & bsdfFlags & BSDF_DIFFUSE)) return color_t(0.f);
-	
+
 	SDDat_t *dat = (SDDat_t *)state.userdata;
 	nodeStack_t stack(dat->nodeStack);
-	
+
 	float Kr;
 	getFresnel(wo, N, Kr);
 	float mT = (1.f - Kr*dat->component[0])*(1.f - dat->component[1]);
-	
+
 	bool transmit = ( cos_Ng_wo * cos_Ng_wl ) < 0.f;
-	
+
 	if(transmit) // light comes from opposite side of surface
 	{
 		if(isTransluc) return dat->component[2] * mT * (diffuseS ? diffuseS->getColor(stack) : color);
 	}
-	
+
 	if(N*wl < 0.0) return color_t(0.f);
 	float mD = mT*(1.f - dat->component[2]) * dat->component[3];
 	if(orenNayar) mD *= OrenNayar(wo, wl, N);
@@ -236,7 +236,7 @@ color_t shinyDiffuseMat_t::emit(const renderState_t &state, const surfacePoint_t
 {
 	SDDat_t *dat = (SDDat_t *)state.userdata;
 	nodeStack_t stack(dat->nodeStack);
-	
+
 	return (diffuseS ? diffuseS->getColor(stack) * emitVal : emitCol);
 }
 
@@ -245,7 +245,7 @@ color_t shinyDiffuseMat_t::sample(const renderState_t &state, const surfacePoint
 	float accumC[4];
 	PFLOAT cos_Ng_wo = sp.Ng*wo, cos_Ng_wi, cos_N;
 	vector3d_t N = FACE_FORWARD(sp.Ng, sp.N, wo);
-	
+
 	SDDat_t *dat = (SDDat_t *)state.userdata;
 	nodeStack_t stack(dat->nodeStack);
 
@@ -279,13 +279,13 @@ color_t shinyDiffuseMat_t::sample(const renderState_t &state, const surfacePoint
 	float s1;
 	if(pick>0) s1 = (s.s1 - val[pick-1]) / width[pick];
 	else 	   s1 = s.s1 / width[pick];
-	
+
 	color_t scolor(0.f);
 	switch(choice[pick])
 	{
 		case (BSDF_SPECULAR | BSDF_REFLECT): // specular reflect
 			wi = reflect_dir(N, wo);
-			s.pdf = width[pick]; 
+			s.pdf = width[pick];
 			scolor = (mirColS ? mirColS->getColor(stack) : specRefCol) * (accumC[0]);
 			if(s.reverse)
 			{
@@ -322,7 +322,7 @@ color_t shinyDiffuseMat_t::sample(const renderState_t &state, const surfacePoint
 float shinyDiffuseMat_t::pdf(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo, const vector3d_t &wi, BSDF_t bsdfs)const
 {
 	if(!(bsdfs & BSDF_DIFFUSE)) return 0.f;
-	
+
 	SDDat_t *dat = (SDDat_t *)state.userdata;
 	float pdf=0.f;
 	float accumC[4];
@@ -340,14 +340,14 @@ float shinyDiffuseMat_t::pdf(const renderState_t &state, const surfacePoint_t &s
 		{
 			width = accumC[cIndex[i]];
 			sum += width;
-			
+
 			switch(cFlags[i])
 			{
 				case (BSDF_DIFFUSE | BSDF_TRANSMIT): // translucency (diffuse transmitt)
 					cos_Ng_wi = sp.Ng*wi;
 					if(cos_Ng_wo*cos_Ng_wi < 0) pdf += std::fabs(wi*N) * width;
 					break;
-				
+
 				case (BSDF_DIFFUSE | BSDF_REFLECT): // lambertian
 					cos_Ng_wi = sp.Ng*wi;
 					pdf += std::fabs(wi*N) * width;
@@ -429,8 +429,9 @@ CFLOAT shinyDiffuseMat_t::getAlpha(const renderState_t &state, const surfacePoin
 
 bool shinyDiffuseMat_t::scatterPhoton(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wi, vector3d_t &wo, pSample_t &s) const
 {
-	color_t scol = sample(state, sp, wi, wo, s);
-	
+    float W = 0.f;
+	color_t scol = sample(state, sp, wi, wo, s, W);
+
 	if(s.pdf > 1.0e-6f)
 	{
 		color_t cnew = s.lcol * s.alpha * scol * (std::fabs(wo*sp.N)/s.pdf);
@@ -470,7 +471,7 @@ material_t* shinyDiffuseMat_t::factory(paraMap_t &params, std::list<paraMap_t> &
 	// !!remember to put diffuse multiplier in material itself!
 	mat = new shinyDiffuseMat_t(col, srCol, diffuse, transp, transl, sp_refl, emit);
 	mat->filter = filt;
-	
+
 	if(fresnEff)
 	{
 		mat->IOR = IOR * IOR;
