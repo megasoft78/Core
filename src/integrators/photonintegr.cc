@@ -31,7 +31,7 @@ struct preGatherData_t
 {
 	preGatherData_t(photonMap_t *dm): diffuseMap(dm), fetched(0) {}
 	photonMap_t *diffuseMap;
-	
+
 	std::vector<radData_t> rad_points;
 	std::vector<photon_t> radianceVec;
 	progressBar_t *pbar;
@@ -54,43 +54,43 @@ class preGatherWorker_t: public yafthreads::thread_t
 void preGatherWorker_t::body()
 {
 	unsigned int start, end, total;
-	
+
 	gdata->mutex.lock();
 	start = gdata->fetched;
 	total = gdata->rad_points.size();
 	end = gdata->fetched = std::min(total, start + 32);
 	gdata->mutex.unlock();
-	
+
 	foundPhoton_t *gathered = new foundPhoton_t[nSearch];
 
 	float radius = 0.f;
 	float iScale = 1.f / ((float)gdata->diffuseMap->nPaths() * M_PI);
 	float scale = 0.f;
-	
+
 	while(start < total)
 	{
 		for(unsigned int n=start; n<end; ++n)
 		{
 			radius = dsRadius_2;//actually the square radius...
 			int nGathered = gdata->diffuseMap->gather(gdata->rad_points[n].pos, gathered, nSearch, radius);
-			
+
 			vector3d_t rnorm = gdata->rad_points[n].normal;
-			
+
 			color_t sum(0.0);
-			
+
 			if(nGathered > 0)
 			{
 				scale = iScale / radius;
-				
+
 				for(int i=0; i<nGathered; ++i)
 				{
 					vector3d_t pdir = gathered[i].photon->direction();
-					
+
 					if( rnorm * pdir > 0.f ) sum += gdata->rad_points[n].refl * scale * gathered[i].photon->color();
 					else sum += gdata->rad_points[n].transm * scale * gathered[i].photon->color();
 				}
 			}
-			
+
 			gdata->radianceVec[n] = photon_t(rnorm, gdata->rad_points[n].pos, sum);
 		}
 		gdata->mutex.lock();
@@ -147,16 +147,16 @@ bool photonIntegrator_t::preprocess()
 	std::vector<light_t*> tmplights;
 
 	if(!set.str().empty()) set << "+";
-	
+
 	set << "DiffPhotons [" << nDiffusePhotons << "]+CausPhotons[" << nCausPhotons << "]";
-	
+
 	if(finalGather)
 	{
 		set << "+FG[" << nPaths << ", " << gatherBounces << "]";
 	}
-	
+
 	settings = set.str();
-	
+
 	ray_t ray;
 	float lightNumPdf, lightPdf, s1, s2, s3, s4, s5, s6, s7, sL;
 	int numCLights = 0;
@@ -176,14 +176,14 @@ bool photonIntegrator_t::preprocess()
 			tmplights.push_back(lights[i]);
 		}
 	}
-	
+
 	fNumLights = (float)numDLights;
 	energies = new float[numDLights];
 
 	for(int i=0;i<numDLights;++i) energies[i] = tmplights[i]->totalEnergy().energy();
 
 	lightPowerD = new pdf1D_t(energies, numDLights);
-	
+
 	Y_INFO << integratorName << ": Light(s) photon color testing for diffuse map:" << yendl;
 	for(int i=0;i<numDLights;++i)
 	{
@@ -192,20 +192,20 @@ bool photonIntegrator_t::preprocess()
 		pcol *= fNumLights*lightPdf/lightNumPdf; //remember that lightPdf is the inverse of the pdf, hence *=...
 		Y_INFO << integratorName << ": Light [" << i+1 << "] Photon col:" << pcol << " | lnpdf: " << lightNumPdf << yendl;
 	}
-	
+
 	delete[] energies;
-	
+
 	//shoot photons
 	bool done=false;
 	unsigned int curr=0;
-	
+
 	unsigned int scatteCount=0, inCount=0, absorbCount=0;
 	surfacePoint_t sp1, sp2;
 	surfacePoint_t *hit=&sp1, *hit2=&sp2;
-	
+
 	// for radiance map:
 	preGatherData_t pgdat(&diffuseMap);
-	
+
 	surfacePoint_t sp;
 	renderState_t state;
 	unsigned char userdata[USER_DATA_SIZE+7];
@@ -215,16 +215,16 @@ bool photonIntegrator_t::preprocess()
 	int pbStep;
 	if(intpb) pb = intpb;
 	else pb = new ConsoleProgressBar_t(80);
-	
+
 	Y_INFO << integratorName << ": Building diffuse photon map..." << yendl;
-	
+
 	pb->init(128);
 	pbStep = std::max(1U, nDiffusePhotons / 128);
 	pb->setTag("Building diffuse photon map...");
 	//Pregather diffuse photons
 
 	float invDiffPhotons = 1.f / (float)nDiffusePhotons;
-	
+
 	while(!done)
 	{
 		if(scene->getSignals() & Y_SIG_ABORT) {  pb->done(); if(!intpb) delete pb; return false; }
@@ -247,7 +247,7 @@ bool photonIntegrator_t::preprocess()
 		ray.tmin = MIN_RAYDIST;
 		ray.tmax = -1.0;
 		pcol *= fNumLights*lightPdf/lightNumPdf; //remember that lightPdf is the inverse of th pdf, hence *=...
-		
+
 		if(pcol.isBlack())
 		{
 			++curr;
@@ -261,7 +261,7 @@ bool photonIntegrator_t::preprocess()
 		const material_t *material = NULL;
 		BSDF_t bsdfs;
 		bool isRefrectedOut = false;
-		
+
 		while( scene->intersect(ray, sp) )
 		{
 			if(isnan(pcol.R) || isnan(pcol.G) || isnan(pcol.B))
@@ -269,11 +269,11 @@ bool photonIntegrator_t::preprocess()
 				Y_WARNING << integratorName << ": NaN  on photon color for light" << lightNum + 1 << "." << yendl;
 				continue;
 			}
-			
+
 			color_t transm(1.f);
 			color_t vcol(0.f);
 			const volumeHandler_t* vol = NULL;
-			
+
 			if(material)
 			{
 				if((bsdfs&BSDF_VOLUMETRIC) && (vol=material->getVolumeHandler(sp.Ng * -ray.dir < 0)))
@@ -281,12 +281,12 @@ bool photonIntegrator_t::preprocess()
 					if(vol->transmittance(state, ray, vcol)) transm = vcol;
 				}
 			}
-			
+
 			vector3d_t wi = -ray.dir, wo;
 			material = sp.material;
 			material->initBSDF(state, sp, bsdfs);
 			hit = &sp;
-			
+
 			if(bsdfs & (BSDF_DIFFUSE))
 			{
 				//deposit photon on surface
@@ -307,7 +307,7 @@ bool photonIntegrator_t::preprocess()
 					pgdat.rad_points.push_back(rd);
 				}
 			}
-			
+
 			// need to break in the middle otherwise we scatter the photon and then discard it => redundant
 			if(nBounces == maxBounces) break;
 			// scatter photon
@@ -316,7 +316,7 @@ bool photonIntegrator_t::preprocess()
 			s5 = scrHalton(d5, curr);
 			s6 = scrHalton(d5+1, curr);
 			s7 = scrHalton(d5+2, curr);
-			
+
 			pSample_t sample(s5, s6, s7, BSDF_ALL, pcol, transm);
 
 			bool scattered = material->scatterPhoton(state, sp, wi, wo, sample);
@@ -358,7 +358,7 @@ bool photonIntegrator_t::preprocess()
 
 	if(numCLights > 0)
 	{
-		
+
 		done = false;
 		curr=0;
 
@@ -368,7 +368,7 @@ bool photonIntegrator_t::preprocess()
 		for(int i=0;i<numCLights;++i) energies[i] = tmplights[i]->totalEnergy().energy();
 
 		lightPowerD = new pdf1D_t(energies, numCLights);
-		
+
 		Y_INFO << integratorName << ": Light(s) photon color testing for caustics map:" << yendl;
 		for(int i=0;i<numCLights;++i)
 		{
@@ -377,7 +377,7 @@ bool photonIntegrator_t::preprocess()
 			pcol *= fNumLights*lightPdf/lightNumPdf; //remember that lightPdf is the inverse of the pdf, hence *=...
 			Y_INFO << integratorName << ": Light [" << i+1 << "] Photon col:" << pcol << " | lnpdf: " << lightNumPdf << yendl;
 		}
-		
+
 		delete[] energies;
 
 		Y_INFO << integratorName << ": Building caustics photon map..." << yendl;
@@ -385,9 +385,9 @@ bool photonIntegrator_t::preprocess()
 		pbStep = std::max(1U, nCausPhotons / 128);
 		pb->setTag("Building caustics photon map...");
 		//Pregather caustic photons
-		
+
 		float invCaustPhotons = 1.f / (float)nCausPhotons;
-		
+
 		while(!done)
 		{
 			if(scene->getSignals() & Y_SIG_ABORT) { pb->done(); if(!intpb) delete pb; return false; }
@@ -401,7 +401,7 @@ bool photonIntegrator_t::preprocess()
 
 			sL = float(curr) * invCaustPhotons;
 			int lightNum = lightPowerD->DSample(sL, &lightNumPdf);
-			
+
 			if(lightNum >= numCLights)
 			{
 				Y_ERROR << integratorName << ": lightPDF sample error! "<<sL<<"/"<<lightNum<<"... stopping now." << yendl;
@@ -432,11 +432,11 @@ bool photonIntegrator_t::preprocess()
 					Y_WARNING << integratorName << ": NaN  on photon color for light" << lightNum + 1 << "." << yendl;
 					continue;
 				}
-				
+
 				color_t transm(1.f);
 				color_t vcol(0.f);
 				const volumeHandler_t* vol = NULL;
-				
+
 				if(material)
 				{
 					if((bsdfs&BSDF_VOLUMETRIC) && (vol=material->getVolumeHandler(sp.Ng * -ray.dir < 0)))
@@ -444,7 +444,7 @@ bool photonIntegrator_t::preprocess()
 						if(vol->transmittance(state, ray, vcol)) transm = vcol;
 					}
 				}
-				
+
 				vector3d_t wi = -ray.dir, wo;
 				material = sp.material;
 				material->initBSDF(state, sp, bsdfs);
@@ -458,7 +458,7 @@ bool photonIntegrator_t::preprocess()
 						causticMap.setNumPaths(curr);
 					}
 				}
-				
+
 				// need to break in the middle otherwise we scatter the photon and then discard it => redundant
 				if(nBounces == maxBounces) break;
 				// scatter photon
@@ -478,7 +478,7 @@ bool photonIntegrator_t::preprocess()
 				causticPhoton = ((sample.sampledFlags & (BSDF_GLOSSY | BSDF_SPECULAR | BSDF_DISPERSIVE)) && directPhoton) ||
 								((sample.sampledFlags & (BSDF_GLOSSY | BSDF_SPECULAR | BSDF_FILTER | BSDF_DISPERSIVE)) && causticPhoton);
 				directPhoton = (sample.sampledFlags & BSDF_FILTER) && directPhoton;
-				
+
 				if(state.chromatic && (sample.sampledFlags & BSDF_DISPERSIVE))
 				{
 					state.chromatic=false;
@@ -486,7 +486,7 @@ bool photonIntegrator_t::preprocess()
 					wl2rgb(state.wavelength, wl_col);
 					pcol *= wl_col;
 				}
-				
+
 				ray.from = sp.P;
 				ray.dir = wo;
 				ray.tmin = MIN_RAYDIST;
@@ -497,7 +497,7 @@ bool photonIntegrator_t::preprocess()
 			if(curr % pbStep == 0) pb->update();
 			done = (curr >= nCausPhotons);
 		}
-		
+
 		pb->done();
 		pb->setTag("Caustics photon map built.");
 		delete lightPowerD;
@@ -506,11 +506,11 @@ bool photonIntegrator_t::preprocess()
 	{
 		Y_INFO << integratorName << ": No caustic source lights found, skiping caustic gathering..." << yendl;
 	}
-	
+
 	Y_INFO << integratorName << ": Shot "<<curr<<" caustic photons from " << numCLights <<" light(s)." << yendl;
 	Y_INFO << integratorName << ": Stored caustic photons: " << causticMap.nPhotons() << yendl;
 	Y_INFO << integratorName << ": Stored diffuse photons: " << diffuseMap.nPhotons() << yendl;
-	
+
 	if(diffuseMap.nPhotons() > 0)
 	{
 		Y_INFO << integratorName << ": Building diffuse photons kd-tree:" << yendl;
@@ -526,7 +526,7 @@ bool photonIntegrator_t::preprocess()
 		causticMap.updateTree();
 		Y_INFO << integratorName << ": Done." << yendl;
 	}
-	
+
 	if (usePhotonSSS)
 	{
 //		Y_INFO << "SSSMap : " << SSSMaps.size() << yendl;
@@ -545,13 +545,13 @@ bool photonIntegrator_t::preprocess()
 		Y_ERROR << integratorName << ": Too few diffuse photons, stopping now." << yendl;
 		return false;
 	}
-	
+
 	lookupRad = 4*dsRadius*dsRadius;
-	
+
 	tmplights.clear();
 
 	if(!intpb) delete pb;
-	
+
 	if(finalGather) //create radiance map:
 	{
 #ifdef USING_THREADS
@@ -578,11 +578,11 @@ bool photonIntegrator_t::preprocess()
 		pgdat.pbar->setTag("Pregathering radiance data for final gathering...");
 		std::vector<preGatherWorker_t *> workers;
 		for(int i=0; i<nThreads; ++i) workers.push_back(new preGatherWorker_t(&pgdat, dsRadius, nDiffuseSearch));
-		
+
 		for(int i=0;i<nThreads;++i) workers[i]->run();
 		for(int i=0;i<nThreads;++i)	workers[i]->wait();
 		for(int i=0;i<nThreads;++i)	delete workers[i];
-		
+
 		radianceMap.swapVector(pgdat.radianceVec);
 		pgdat.pbar->done();
 		pgdat.pbar->setTag("Pregathering radiance data done...");
@@ -593,7 +593,7 @@ bool photonIntegrator_t::preprocess()
 			Y_WARNING << integratorName << ": radianceMap not empty!" << yendl;
 			radianceMap.clear();
 		}
-		
+
 		Y_INFO << integratorName << ": Creating radiance map..." << yendl;
 		progressBar_t *pbar;
 		if(intpb) pbar = intpb;
@@ -611,17 +611,17 @@ bool photonIntegrator_t::preprocess()
 				color_t surfCol = pgdat.rad_points[n].refl;
 				vector3d_t rnorm = pgdat.rad_points[n].normal;
 				float scale = 1.f / ( float(diffuseMap.nPaths()) * radius * M_PI);
-				
+
 				if(isnan(scale))
 				{
 					Y_WARNING << integratorName << ": NaN on (scale)" << yendl;
 					break;
 				}
-				
+
 				for(int i=0; i<nGathered; ++i)
 				{
 					vector3d_t pdir = gathered[i].photon->direction();
-					
+
 					if( rnorm * pdir > 0.f ) sum += surfCol * scale * gathered[i].photon->color();
 					else sum += pgdat.rad_points[n].transm * scale * gathered[i].photon->color();
 				}
@@ -657,7 +657,7 @@ color_t photonIntegrator_t::finalGathering(renderState_t &state, const surfacePo
 	const volumeHandler_t *vol;
 	color_t vcol(0.f);
 	float W = 0.f;
-	
+
 	int nSampl = std::max(1, nPaths/state.rayDivision);
 	for(int i=0; i<nSampl; ++i)
 	{
@@ -690,9 +690,9 @@ color_t photonIntegrator_t::finalGathering(renderState_t &state, const surfacePo
 		pRay.tmax = -1.0;
 		pRay.from = hit.P;
 		throughput = scol;
-		
+
 		if( !(did_hit = scene->intersect(pRay, hit)) ) continue; //hit background
-		
+
 		p_mat = hit.material;
 		length = pRay.tmax;
 		state.userdata = n_udat;
@@ -707,12 +707,12 @@ color_t photonIntegrator_t::finalGathering(renderState_t &state, const surfacePo
 			int d4 = 4*depth;
 			pwo = -pRay.dir;
 			p_mat->initBSDF(state, hit, matBSDFs);
-			
+
 			if((matBSDFs & BSDF_VOLUMETRIC) && (vol=p_mat->getVolumeHandler(hit.N * pwo < 0)))
 			{
 				if(vol->transmittance(state, pRay, vcol)) throughput *= vcol;
 			}
-	
+
 			if(matBSDFs & (BSDF_DIFFUSE))
 			{
 				if(close)
@@ -725,14 +725,14 @@ color_t photonIntegrator_t::finalGathering(renderState_t &state, const surfacePo
 					const photon_t *nearest = radianceMap.findNearest(hit.P, sf, lookupRad);
 					if(nearest) lcol = nearest->color();
 				}
-				
+
 				if(close || caustic)
 				{
 					if(matBSDFs & BSDF_EMIT) lcol += p_mat->emit(state, hit, pwo);
 					pathCol += lcol*throughput;
 				}
 			}
-			
+
 			s1 = scrHalton(d4+3, offs);
 			s2 = scrHalton(d4+4, offs);
 
@@ -741,10 +741,10 @@ color_t photonIntegrator_t::finalGathering(renderState_t &state, const surfacePo
 				s1 = addMod1(s1, state.dc1);
 				s2 = addMod1(s2, state.dc2);
 			}
-			
+
 			sample_t sb(s1, s2, (close) ? BSDF_ALL : BSDF_ALL_SPECULAR | BSDF_FILTER);
 			scol = p_mat->sample(state, hit, pwo, pRay.dir, sb, W);
-			
+
 			if( sb.pdf <= 1.0e-6f)
 			{
 				did_hit=false;
@@ -758,7 +758,7 @@ color_t photonIntegrator_t::finalGathering(renderState_t &state, const surfacePo
 			pRay.from = hit.P;
 			throughput *= scol;
 			did_hit = scene->intersect(pRay, hit);
-			
+
 			if(!did_hit) //hit background
 			{
 				 if(caustic && background)
@@ -767,14 +767,14 @@ color_t photonIntegrator_t::finalGathering(renderState_t &state, const surfacePo
 				 }
 				 break;
 			}
-			
+
 			p_mat = hit.material;
 			length += pRay.tmax;
 			caustic = (caustic || !depth) && (sb.sampledFlags & (BSDF_SPECULAR | BSDF_FILTER));
 			close =  length < gatherDist;
 			do_bounce = caustic || close;
 		}
-		
+
 		if(did_hit)
 		{
 			p_mat->initBSDF(state, hit, matBSDFs);
@@ -800,7 +800,7 @@ colorA_t photonIntegrator_t::integrate(renderState_t &state, diffRay_t &ray) con
 	color_t col(0.0);
 	CFLOAT alpha=0.0;
 	surfacePoint_t sp;
-	
+
 	void *o_udat = state.userdata;
 	bool oldIncludeLights = state.includeLights;
 	if(scene->intersect(ray, sp))
@@ -820,7 +820,7 @@ colorA_t photonIntegrator_t::integrate(renderState_t &state, diffRay_t &ray) con
 		col += material->emit(state, sp, wo);
 		state.includeLights = false;
 		spDifferentials_t spDiff(sp, ray);
-		
+
 		if(finalGather)
 		{
 			if(showMap)
@@ -833,7 +833,7 @@ colorA_t photonIntegrator_t::integrate(renderState_t &state, diffRay_t &ray) con
 			{
 				// contribution of light emitting surfaces
 				if(bsdfs & BSDF_EMIT) col += material->emit(state, sp, wo);
-				
+
 				if(bsdfs & BSDF_DIFFUSE)
 				{
 					col += estimateAllDirectLight(state, sp, wo);
@@ -847,7 +847,7 @@ colorA_t photonIntegrator_t::integrate(renderState_t &state, diffRay_t &ray) con
 			PFLOAT radius = dsRadius; //actually the square radius...
 
 			int nGathered=0;
-			
+
 			if(diffuseMap.nPhotons() > 0) nGathered = diffuseMap.gather(sp.P, gathered, nDiffuseSearch, radius);
 			color_t sum(0.0);
 			if(nGathered > 0)
@@ -859,7 +859,7 @@ colorA_t photonIntegrator_t::integrate(renderState_t &state, diffRay_t &ray) con
 			else
 			{
 				if(bsdfs & BSDF_EMIT) col += material->emit(state, sp, wo);
-				
+
 				if(bsdfs & BSDF_DIFFUSE)
 				{
 					col += estimateAllDirectLight(state, sp, wo);
@@ -868,7 +868,7 @@ colorA_t photonIntegrator_t::integrate(renderState_t &state, diffRay_t &ray) con
 				PFLOAT radius = dsRadius; //actually the square radius...
 
 				int nGathered=0;
-				
+
 				if(diffuseMap.nPhotons() > 0) nGathered = diffuseMap.gather(sp.P, gathered, nDiffuseSearch, radius);
 				color_t sum(0.0);
 				if(nGathered > 0)
@@ -885,17 +885,17 @@ colorA_t photonIntegrator_t::integrate(renderState_t &state, diffRay_t &ray) con
 				}
 			}
 		}
-		
+
 		// add caustics
 		if(bsdfs & BSDF_DIFFUSE) col += estimateCausticPhotons(state, sp, wo);
-		
-		
-		if(bsdfs & BSDF_TRANSLUCENT) 
+
+
+		if(bsdfs & BSDF_TRANSLUCENT)
 		{
 			col += estimateSSSMaps(state,sp,wo);
 			col += estimateSSSSingleSImportantSampling(state,sp,wo);
 		}
-		
+
 		recursiveRaytrace(state, ray, bsdfs, sp, wo, col, alpha);
 
 		CFLOAT m_alpha = material->getAlpha(state, sp, wo);
@@ -905,10 +905,10 @@ colorA_t photonIntegrator_t::integrate(renderState_t &state, diffRay_t &ray) con
 	{
 		if(background) col += (*background)(ray, state, false);
 	}
-	
+
 	state.userdata = o_udat;
 	state.includeLights = oldIncludeLights;
-	
+
 	return colorA_t(col, alpha);
 }
 
@@ -930,12 +930,12 @@ integrator_t* photonIntegrator_t::factory(paraMap_t &params, renderEnvironment_t
 	float dsRad=0.1;
 	float cRad=0.01;
 	float gatherDist=0.2;
-	
-	
+
+
 	int sssdepth = 10, sssPhotons = 200000;
 	int singleSSamples = 128;
 	float sScale = 40.f;
-	
+
 	params.getParam("transpShad", transpShad);
 	params.getParam("shadowDepth", shadowDepth);
 	params.getParam("raydepth", raydepth);
@@ -953,13 +953,13 @@ integrator_t* photonIntegrator_t::factory(paraMap_t &params, renderEnvironment_t
 	gatherDist = dsRad;
 	params.getParam("fg_min_pathlen", gatherDist);
 	params.getParam("show_map", show_map);
-	
+
 	params.getParam("useSSS", useSSS);
 	params.getParam("sssPhotons", sssPhotons);
 	params.getParam("sssDepth", sssdepth);
 	params.getParam("singleScatterSamples", singleSSamples);
 	params.getParam("sssScale", sScale);
-	
+
 	photonIntegrator_t* ite = new photonIntegrator_t(numPhotons, numCPhotons, transpShad, shadowDepth, dsRad, cRad);
 	ite->rDepth = raydepth;
 	ite->nDiffuseSearch = search;
@@ -971,7 +971,7 @@ integrator_t* photonIntegrator_t::factory(paraMap_t &params, renderEnvironment_t
 	ite->gatherBounces = fgBounces;
 	ite->showMap = show_map;
 	ite->gatherDist = gatherDist;
-	
+
 	ite->usePhotonSSS = useSSS;
 	ite->nSSSPhotons = sssPhotons;
 	ite->nSSSDepth = sssdepth;

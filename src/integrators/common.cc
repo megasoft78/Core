@@ -393,20 +393,20 @@ bool createSSSMaps( const scene_t &scene, const std::vector<light_t *> &lights, 
 	float lightNumPdf, lightPdf, s1, s2, s3, s4, s5, s6, s7, sL;
 	float fNumLights = (float)numLights;
 	float *energies = new float[numLights];
-	for(int i=0;i<numLights;++i) 
+	for(int i=0;i<numLights;++i)
 		energies[i] = lights[i]->totalEnergy().energy();
 	pdf1D_t *lightPowerD = new pdf1D_t(energies, numLights);
-	for(int i=0;i<numLights;++i) 
+	for(int i=0;i<numLights;++i)
 		Y_INFO << "energy: "<< energies[i] <<" (dirac: "<<lights[i]->diracLight()<<")\n";
 	delete[] energies;
-	
+
 	// init progressbar
 	int pbStep;
 	Y_INFO << intName << ": Building SSS photon map..." << yendl;
 	pb->init(128);
 	pbStep = std::max(1U, nPhotons / 128);
 	pb->setTag("Building SSS photon map...");
-	
+
 	// prepare for shooting photons
 	bool done=false;
 	unsigned int curr=0;
@@ -416,7 +416,7 @@ bool createSSSMaps( const scene_t &scene, const std::vector<light_t *> &lights, 
 	unsigned char userdata[USER_DATA_SIZE+7];
 	state.userdata = (void *)( &userdata[7] - ( ((size_t)&userdata[7])&7 ) ); // pad userdata to 8 bytes
 	//std::cout<<"INFO: caustic map " << cMap.nPhotons() << std::endl;
-	
+
 	while(!done)
 	{
 		// sampling the light to shoot photon
@@ -429,7 +429,7 @@ bool createSSSMaps( const scene_t &scene, const std::vector<light_t *> &lights, 
 		//sL = float(cMap.nPhotons()) / float(nPhotons);
 		int lightNum = lightPowerD->DSample(sL, &lightNumPdf);
 		if(lightNum >= numLights){ std::cout << "lightPDF sample error! "<<sL<<"/"<<lightNum<< "  " << curr << "/" << nPhotons << "\n"; delete lightPowerD; return false; }
-		
+
 		// shoot photon
 		color_t pcol = lights[lightNum]->emitPhoton(s1, s2, s3, s4, ray, lightPdf);
 		ray.tmin = 0.001;
@@ -439,14 +439,16 @@ bool createSSSMaps( const scene_t &scene, const std::vector<light_t *> &lights, 
 		{
 			++curr;
 			done = (curr >= nPhotons) ? true : false;
-			
+
 			continue;
 		}
-		
+
 		// find instersect point
 		BSDF_t bsdfs = BSDF_NONE;
 		int nBounces=0;
 		const material_t *material = 0;
+		const volumeHandler_t *vol = 0;
+
 		while( scene.intersect(ray, *hit2) )
 		{
 			if(isnan(pcol.R) || isnan(pcol.G) || isnan(pcol.B))
@@ -455,10 +457,10 @@ bool createSSSMaps( const scene_t &scene, const std::vector<light_t *> &lights, 
 			// check for volumetric effects
 			if(material)
 			{
-				if((bsdfs&BSDF_VOLUMETRIC) && material->volumeTransmittance(state, *hit, ray, vcol))
-				{
-					transm = vcol;
-				}
+                if((bsdfs&BSDF_VOLUMETRIC) && (vol=material->getVolumeHandler((*hit).Ng * ray.dir < 0)))
+                {
+                    if(vol->transmittance(state, ray, vcol)) transm = vcol;
+                }
 			}
 			std::swap(hit, hit2);
 			vector3d_t wi = -ray.dir, wo;
@@ -487,7 +489,7 @@ bool createSSSMaps( const scene_t &scene, const std::vector<light_t *> &lights, 
 						sssMap_t->setNumPaths(curr);
 						SSSMaps[hitObj] = sssMap_t;
 					}
-				} 
+				}
 				break;
 				//cMap.pushPhoton(np);
 				//cMap.setNumPaths(curr);
@@ -512,9 +514,9 @@ bool createSSSMaps( const scene_t &scene, const std::vector<light_t *> &lights, 
 			 pSample_t sample(s5, s6, s7, BSDF_ALL, pcol, transm);
 			 bool scattered = material->scatterPhoton(state, *hit, wi, wo, sample);
 			 if(!scattered) break; //photon was absorped.
-			 
+
 			 //std::cout << curr << " not translucent objects:" << std::endl;
-			 
+
 			 pcol = sample.color;
 			 ray.from = hit->P;
 			 ray.dir = wo;
@@ -529,9 +531,9 @@ bool createSSSMaps( const scene_t &scene, const std::vector<light_t *> &lights, 
 	}
 	pb->done();
 	pb->setTag("SSS photon map built.");
-	
+
 	delete lightPowerD;
-	
+
 	return true;
 }
 
@@ -545,7 +547,7 @@ color_t estimateSSSMaps(renderState_t &state, const surfacePoint_t &sp, const st
 		return sum;
 	}
 	photonMap_t* sssMap_t = it->second;
-	
+
 	float photonSum = 0;
 	it = SSSMaps.begin();
 	while (it!=SSSMaps.end())
@@ -553,39 +555,40 @@ color_t estimateSSSMaps(renderState_t &state, const surfacePoint_t &sp, const st
 		photonSum += it->second->nPhotons();
 		it++;
 	}
-	
+
 	BSDF_t bsdfs;
-	
+
 	void *o_udat = state.userdata;
 	unsigned char userdata[USER_DATA_SIZE];
 	state.userdata = (void *)userdata;
-	
+
 	const material_t *material = sp.material;
 	material->initBSDF(state, sp, bsdfs);
-	
+
 	color_t sigma_s, sigma_a;
 	float IOR;
 	TranslucentData_t* dat = (TranslucentData_t*)state.userdata;
 	sigma_a = dat->sig_a;
 	sigma_s = dat->sig_s;
 	IOR = dat->IOR;
-	
+
 	//std::cout << "sigma_a = " << sigma_a.R << "  sigma_s = " << sigma_s.R << "  IOR = " << IOR << std::endl;
-	
+
 	// sum all photon in translucent object
-	const std::vector<const photon_t*>& photons = sssMap_t->getAllPhotons(sp.P);
-	
+	std::vector<const photon_t*> photons;
+	sssMap_t->getAllPhotons(sp.P, photons);
+
 	//std::cout << "Sample " << state.pixelNumber << "    Get photons number is " << photons.size() << std::endl;
-	
-	for (uint i=0; i<photons.size(); i++) {
+
+	for (unsigned int i=0; i<photons.size(); i++) {
 		sum += dipole(*photons[i],sp,wo,IOR,0.f,sigma_s,sigma_a);
 	}
 	sum *= 100.f/photonSum;//(float)sssMap_t->nPhotons();
 	//sum *= 1.f/photons.size();
 	std::cout << "sum = " << sum << "" << photonSum / 10.f << std::endl;
-	
+
 	state.userdata = o_udat;
-	
+
 	return sum;
 }
 
@@ -602,13 +605,13 @@ float RD(float sig_s, float sig_a, float g, float IOR, float r)
 	float z_v = z_r*(1+4.f*A/3.f);
 	float dr = sqrtf(r*r + z_r*z_r);
 	float dv = sqrtf(r*r + z_v*z_v);
-	
+
 	rd *= alpha_;
 	float real = z_r*(sig_tr+1/dr)*expf(-1.f*sig_tr*dr)/(dr*dr);
 	float vir = z_v*(sig_tr+1/dv)*expf(-1.f*sig_tr*dv)/(dv*dv);
-	
+
 	rd *= (real+vir);
-	
+
 	return rd;
 }
 
@@ -619,26 +622,26 @@ color_t dipole(const photon_t& inPhoton, const surfacePoint_t &sp, const vector3
 	const vector3d_t wi = inPhoton.direction();
 	const vector3d_t No = sp.N;
 	const vector3d_t Ni = inPhoton.hitNormal;
-	
+
 	float cosWiN = wi*Ni;
-	
+
 	float Kr_i, Kt_i, Kr_o, Kt_o;
 	fresnel(wi, Ni, IOR, Kr_i, Kt_i);
 	fresnel(wo, No, IOR, Kr_o, Kt_o);
-	
+
 	vector3d_t v = inPhoton.pos-sp.P;
 	float r  = v.length()*20.f;
-	
+
 	// compute RD
 	rd.R = cosWiN*Li.R*Kt_i*Kt_o*RD(sigmaS.R, sigmaA.R, g, IOR, r)/M_PI;
 	rd.G = cosWiN*Li.G*Kt_i*Kt_o*RD(sigmaS.G, sigmaA.G, g, IOR, r)/M_PI;
 	rd.B = cosWiN*Li.B*Kt_i*Kt_o*RD(sigmaS.B, sigmaA.B, g, IOR, r)/M_PI;
-	
-	
+
+
 	//std::cout << "Kt_i=" << Kt_i << "    Kt_o=" << Kt_o << std::endl;
 	//std::cout << "r=" << r << "    rd=" << RD(sigmaS.R, sigmaA.R, g, IOR, r) << std::endl;
 	//std::cout << "Li=" << Li << "  rd=" << rd << std::endl << std::endl;
-	
+
 	return rd;
 }
 

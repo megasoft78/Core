@@ -63,23 +63,21 @@ class YAFRAYCORE_EXPORT mcIntegrator_t: public tiledIntegrator_t
 		virtual void cleanup();
 
 		int rDepth; //! Ray depth0
-		
+
 		/*! Creates SSS photon map for different objects*/
 		virtual bool createSSSMaps();
 		virtual bool createSSSMapsByPhotonTracing();
-		virtual bool destorySSSMaps();
-	
+		virtual void destorySSSMaps();
+
 		/*! Estimates SSS photons for a given surface point of one specified objec*/
 		virtual color_t estimateSSSMaps(renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo ) const;
-	
+
 		virtual color_t estimateSSSSingleScattering(renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo) const;
 		virtual color_t estimateSSSSingleSImportantSampling(renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo) const;
 		virtual color_t getTranslucentInScatter(renderState_t& state, ray_t& stepRay, float currentStep) const;
-	
+
 		virtual color_t estimateSSSSingleScatteringPhotons(renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo) const;
 
-		
-		int rDepth; //! Ray depth
 		bool trShad; //! Use transparent shadows
 		int sDepth; //! Shadow depth for transparent shadows
 
@@ -90,13 +88,13 @@ class YAFRAYCORE_EXPORT mcIntegrator_t: public tiledIntegrator_t
 		int causDepth; //! Caustic photons max path depth
 		photonMap_t causticMap; //! Container for the caustic photon map
 		pdf1D_t *lightPowerD;
-		
+
 		bool useAmbientOcclusion; //! Use ambient occlusion
 		int aoSamples; //! Ambient occlusion samples
 		float aoDist; //! Ambient occlusion distance
 		color_t aoCol; //! Ambient occlusion color
-		
-		
+
+
 		background_t *background; //! Background shader
 		int nPaths; //! Number of samples for mc raytracing
 		int maxBounces; //! Max. path depth for mc raytracing
@@ -108,7 +106,7 @@ class YAFRAYCORE_EXPORT mcIntegrator_t: public tiledIntegrator_t
 		int icMDivs; //! number of subdivision on stratified hemisphere along theta
 		float icKappa; //! controls the overall density of IC records
 		bool icDumpXML; //! true if you want to have a file with the IC tree information (it may be big)
-		
+
 		bool usePhotonSSS;
 		unsigned int nSSSPhotons;
 		int nSSSDepth;
@@ -127,7 +125,7 @@ struct TranslucentData_t
 	color_t sig_a;
 	float IOR, g;
 	float mTransl, mDiffuse, mGlossy, pDiffuse;
-	
+
 	void *stack;
 };
 
