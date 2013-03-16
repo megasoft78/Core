@@ -82,8 +82,8 @@ class translucentMat_t: public nodeMaterial_t
 		int nBSDF;
 
 		// parameters for translucent property
-		color_t sigma_s;
-		color_t sigma_a;
+		color_t sigma_s; // gcc 4.4.6 msg: will be init after
+		color_t sigma_a; // gcc 4.4.6 msg: will be init after
 		float	IOR;
 		float	g;
 };
