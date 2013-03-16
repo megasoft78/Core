@@ -39,13 +39,16 @@ target_link_libraries(SkyIntegrator yafaraycore)
 add_library(sppm SHARED sppm.cc)
 target_link_libraries(sppm yafaraycore)
 
-add_library(directic SHARED directic.cc)
-target_link_libraries(directic yafaraycore)
+IF(WITH_IRR_CACHE) # povman: atm irrcache modes is not allows build with MSVC compilers
+	add_library(directic SHARED directic.cc)
+	target_link_libraries(directic yafaraycore)
 
-add_library(photonic SHARED photonic.cc)
-target_link_libraries(photonic yafaraycore)
+	add_library(photonic SHARED photonic.cc)
+	target_link_libraries(photonic yafaraycore)
+	
+	install (TARGETS directic photonic ${YAF_TARGET_TYPE} DESTINATION ${YAF_PLUGIN_DIR})
+ENDIF(WITH_IRR_CACHE)
 
-install (TARGETS directlight directic photonmap photonic pathtrace bidirpath sppm
-		EmissionIntegrator SingleScatterIntegrator EmptyVolumeIntegrator
-		DebugIntegrator SkyIntegrator
+install (TARGETS directlight photonmap pathtrace bidirpath sppm	EmissionIntegrator 
+		SingleScatterIntegrator EmptyVolumeIntegrator DebugIntegrator SkyIntegrator
 		${YAF_TARGET_TYPE} DESTINATION ${YAF_PLUGIN_DIR})
