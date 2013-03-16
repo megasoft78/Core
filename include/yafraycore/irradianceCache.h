@@ -58,12 +58,21 @@ struct YAFRAYCORE_EXPORT stratifiedHemisphere {
 	stratifiedHemisphere &operator=(const stratifiedHemisphere &strat);
 
 	inline void randomize() { hal.setStart((unsigned int)time(0)); }
-	vector3d_t getDirection(int j, int k, unsigned int r); //!< get random direction sample from section j,k in local coordinate system
-	vector3d_t getDirection(int j, int k, float s1, float s2); //!< get random direction sample from section j,k in local coordinate system
-	inline const vector3d_t &getVk(int k) const { return vk[k]; } //!< get vector v_k: base-plane vector in the direction (pi/2, phi_k + pi/2)
-	inline const vector3d_t &getVkMinus(int k) const { return vkMinus[k]; } //!< get vector v_k: base-plane vector in the direction (pi/2, phi_k + pi/2)
-	inline const vector3d_t &getUk(int k) const { return uk[k]; } //!< get vector u_k: base-plane vector in the direction (pi/2, phi_k)
-	inline float getTanTheta(int j) const { return tanTheta[j]; } //!< get tan(theta_j)
+
+    //!< get random direction sample from section j,k in local coordinate system
+	vector3d_t getDirection(int j, int k, unsigned int r);
+	vector3d_t getDirection(int j, int k, float s1, float s2);
+
+    //!< get vector v_k: base-plane vector in the direction (pi/2, phi_k + pi/2)
+	inline const vector3d_t &getVk(int k) const { return vk[k]; }
+
+	//!< get vector v_k: base-plane vector in the direction (pi/2, phi_k + pi/2)
+    inline const vector3d_t &getVkMinus(int k) const { return vkMinus[k]; }
+
+    //!< get vector u_k: base-plane vector in the direction (pi/2, phi_k)
+	inline const vector3d_t &getUk(int k) const { return uk[k]; }
+    //!< get tan(theta_j)
+	inline float getTanTheta(int j) const { return tanTheta[j]; } 
 	inline float getSinTheta(int j) const { return sinTheta[j]; }
 	inline float getSinThetaMinus(int j) const { return sinThetaMinus[j]; }
 	inline float getCosTheta(int j) const { return cosTheta[j]; }
