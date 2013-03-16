@@ -6,11 +6,17 @@ set(YF_CORE_SOURCES bound.cc yafsystem.cc environment.cc console.cc color_consol
 					triclip.cc scene.cc imagefilm.cc imagesplitter.cc material.cc nodematerial.cc
 					triangle.cc vector3d.cc photon.cc xmlparser.cc spectrum.cc volume.cc
 					surface.cc integrator.cc mcintegrator.cc ccthreads.cc
-					imageOutput.cc memoryIO.cc irradianceCache.cc)
+					imageOutput.cc memoryIO.cc)
+
+# povman: flag for irrcache
+IF(WITH_IRR_CACHE)
+	set(YF_IRR_SOURCES irradianceCache.cc)
+ENDIF(WITH_IRR_CACHE)
+# end
 
 add_definitions(-DBUILDING_YAFRAYCORE)
 
-add_library(yafaraycore SHARED ${YF_CORE_SOURCES})
+add_library(yafaraycore SHARED ${YF_CORE_SOURCES} ${YF_IRR_SOURCES})
 
 if (UNIX)
 	set (DLLOAD_LIB "dl" )
