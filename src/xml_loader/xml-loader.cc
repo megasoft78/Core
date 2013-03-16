@@ -126,7 +126,9 @@ class DiskSceneTessellator : public DiskTessellator
 		}
 };
 
-/*void test(scene_t *scene) {
+#ifdef WITH_OPENCL
+ /*
+ void test(scene_t *scene) {
 	photonIntegratorGPU_t::DiskVectorType disks;
 	photonIntegratorGPU_t::NormalVectorType normals;
 
@@ -147,6 +149,7 @@ class DiskSceneTessellator : public DiskTessellator
 		tes.tessellate(itr->mat, itr->c, itr->r, normals[itr->n_idx]);
 	}
 }*/
+#endif
 
 int main(int argc, char *argv[])
 {
