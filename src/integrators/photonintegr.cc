@@ -199,9 +199,9 @@ bool photonIntegrator_t::preprocess()
 	bool done=false;
 	unsigned int curr=0;
 
-	unsigned int scatteCount=0, inCount=0, absorbCount=0;
+	unsigned int scatteCount=0, inCount=0, absorbCount=0; // gcc 4.4.6 msg: unused all
 	surfacePoint_t sp1, sp2;
-	surfacePoint_t *hit=&sp1, *hit2=&sp2;
+	surfacePoint_t *hit=&sp1, *hit2=&sp2; // gcc 4.4.6 msg: unused 'hit2'
 
 	// for radiance map:
 	preGatherData_t pgdat(&diffuseMap);
@@ -260,7 +260,7 @@ bool photonIntegrator_t::preprocess()
 		bool directPhoton = true;
 		const material_t *material = NULL;
 		BSDF_t bsdfs;
-		bool isRefrectedOut = false;
+		bool isRefrectedOut = false; // gcc 4.4.6 msg: unused
 
 		while( scene->intersect(ray, sp) )
 		{
