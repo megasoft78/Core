@@ -282,7 +282,7 @@ void icRec_t::setNup(const vector3d_t &wo) {
 
 bool icRec_t::inFront(const icRec_t &record) const {
 	float di = (P - record.P) * ((Nup + record.getNup() )/2.0f);
-	if (di < -0.01f) // small negative value, Â¿it works?
+	if (di < -0.01f) // small negative value, ¿it works?
 		return true;
 	return false;
 }
@@ -326,7 +326,7 @@ void icTree_t::add(icRec_t *rec) {
 bool icTree_t::icLookup_t::operator()(const point3d_t &p, const icRec_t *sample) { // point p isn't used
 	if (!record->inFront(*sample)) {
 		float weight = sample->getWeight(*record);
-		if (weight > 0.f) { // TODO: see if weight > 0 is correct or should be a small number
+		if (weight > 0.f) { //- TODO: see if weight > 0 is correct or should be a small number
 			// get weighted irradiance sample = E_i(p) * w_i(p)
 			// E_i(p) = E_i + (n_i x n) * drotE_i
 			color_t rotGradResult, transGradResult;
@@ -431,6 +431,14 @@ bool icTree_t::getIrradiance(icRec_t *record) {
 	return true;
 }
 
+/** povman:
+ *  issue with MSVC 2008 in line: 460
+ *  more info: http://www.zator.com/Cpp/E4_3_1.htm
+ */
+#ifdef _MSC_VER
+    const int maxDepth = 0;
+#endif
+
 void icTree_t::saveToXml(const std::string &fileName) {
 	int rc;
 	xmlTextWriterPtr writer;
@@ -448,8 +456,9 @@ void icTree_t::saveToXml(const std::string &fileName) {
 										   "%f,%f,%f", treeBound.a.x, treeBound.a.y, treeBound.a.z );
 	xmlTextWriterWriteFormatAttribute(writer, BAD_CAST "boundMax",
 										   "%f,%f,%f", treeBound.g.x, treeBound.g.y, treeBound.g.z );
-	octNode_t<icRec_t *> *nodes[maxDepth+1];
-	int sibling[maxDepth+1];
+    //-
+    octNode_t<icRec_t *> *nodes[maxDepth+1];
+    int sibling[maxDepth+1];
 	int level = 0;
 	nodes[0] = &root;
 	sibling[0] = 8; // end condition
