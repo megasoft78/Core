@@ -23,7 +23,9 @@
 
 #include <core_api/tiledintegrator.h>
 #include <yafraycore/photon.h>
-#include <yafraycore/irradianceCache.h>
+#ifdef WITH_IRR_CACHE
+    #include <yafraycore/irradianceCache.h>
+#endif
 
 __BEGIN_YAFRAY
 
@@ -54,13 +56,18 @@ class YAFRAYCORE_EXPORT mcIntegrator_t: public tiledIntegrator_t
 			color_t color;
 			return color;
 		}
+
+#ifdef WITH_IRR_CACHE
 		/*! Creates a new irradiance cache's record for a given point
 		  \param state current state of scene rendering
 		  \param ray ray that hits the surface where the icRecord will be created
 		  \param record the record that it is going to be used to save the irradiance, needs to be initialized with ray's intersect position
 		  */
+
 		virtual void setICRecord(renderState_t &state, diffRay_t &ray, icRec_t *record) const;
 		virtual void cleanup();
+
+#endif // WITH_IRR_CACHE
 
 		int rDepth; //! Ray depth0
 
@@ -81,31 +88,34 @@ class YAFRAYCORE_EXPORT mcIntegrator_t: public tiledIntegrator_t
 		bool trShad; //! Use transparent shadows
 		int sDepth; //! Shadow depth for transparent shadows
 
-		bool usePhotonCaustics; //! Use photon caustics
-		unsigned int nCausPhotons; //! Number of caustic photons (to be shoot but it should be the target
-		int nCausSearch; //! Amount of caustic photons to be gathered in estimation
-		float causRadius; //! Caustic search radius for estimation
-		int causDepth; //! Caustic photons max path depth
+		bool usePhotonCaustics;     //! Use photon caustics
+		unsigned int nCausPhotons;  //! Number of caustic photons (to be shoot but it should be the target
+		int nCausSearch;    //! Amount of caustic photons to be gathered in estimation
+		float causRadius;   //! Caustic search radius for estimation
+		int causDepth;      //! Caustic photons max path depth
 		photonMap_t causticMap; //! Container for the caustic photon map
 		pdf1D_t *lightPowerD;
 
 		bool useAmbientOcclusion; //! Use ambient occlusion
-		int aoSamples; //! Ambient occlusion samples
-		float aoDist; //! Ambient occlusion distance
-		color_t aoCol; //! Ambient occlusion color
+		int aoSamples;  //! Ambient occlusion samples
+		float aoDist;   //! Ambient occlusion distance
+		color_t aoCol;  //! Ambient occlusion color
 
 
 		background_t *background; //! Background shader
-		int nPaths; //! Number of samples for mc raytracing
+		int nPaths;     //! Number of samples for mc raytracing
 		int maxBounces; //! Max. path depth for mc raytracing
 		std::vector<light_t*> lights; //! An array containing all the scene lights
 
+#ifdef WITH_IRR_CACHE
 
-		bool useIrradianceCache; //! Use irradiance cache
-		icTree_t *icTree; //! contains a pointer to an Irradiance Cache's tree
-		int icMDivs; //! number of subdivision on stratified hemisphere along theta
-		float icKappa; //! controls the overall density of IC records
+		bool useIrradianceCache;    //! Use irradiance cache
+		icTree_t *icTree;   //! contains a pointer to an Irradiance Cache's tree
+		int icMDivs;    //! number of subdivision on stratified hemisphere along theta
+		float icKappa;  //! controls the overall density of IC records
 		bool icDumpXML; //! true if you want to have a file with the IC tree information (it may be big)
+
+#endif // WITH_IRR_CACHE
 
 		bool usePhotonSSS;
 		unsigned int nSSSPhotons;
@@ -116,7 +126,6 @@ class YAFRAYCORE_EXPORT mcIntegrator_t: public tiledIntegrator_t
 	public:
 		static float sssScale;
 };
-
 
 struct TranslucentData_t
 {
