@@ -633,6 +633,7 @@ color_t mcIntegrator_t::sampleAmbientOcclusion(renderState_t &state, const surfa
 	return col / (float)n;
 }
 
+#ifdef WITH_IRR_CACHE
 void mcIntegrator_t::setICRecord(renderState_t &state, diffRay_t &ray, icRec_t *record) const {
 	if (!ray.hasDifferentials)
 		Y_INFO << "ERROR: ray from mcIntegrator_t::createNewICRecord() should have differentials" << std::endl;
@@ -716,9 +717,11 @@ void mcIntegrator_t::setICRecord(renderState_t &state, diffRay_t &ray, icRec_t *
 	record->clampGradient();
 }
 
+
 void mcIntegrator_t::cleanup() {
 	// do nothing, if IC implemented, may call the xml dump saving function
 }
+#endif
 
 float phaseFunc ( const vector3d_t &wi, const vector3d_t &wo, float g )
 {
