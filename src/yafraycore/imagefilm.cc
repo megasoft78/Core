@@ -116,10 +116,10 @@ float Lanczos2(float dx, float dy)
 }
 
 imageFilm_t::imageFilm_t (int width, int height, int xstart, int ystart, colorOutput_t &out, float filterSize, filterType filt,
-						  renderEnvironment_t *e, bool showSamMask, int tSize, imageSpliter_t::tilesOrderType tOrder, bool pmA, bool drawParams):
+						  renderEnvironment_t *e, bool showSamMask, int tSize, imageSpliter_t::tilesOrderType tOrder, bool pmA, bool drawParams, bool transpBackground):
 	flags(0), w(width), h(height), cx0(xstart), cy0(ystart), gamma(1.0), filterw(filterSize*0.5), output(&out),
 	clamp(false), split(true), interactive(true), abort(false), correctGamma(false), splitter(0), pbar(0),
-	env(e), showMask(showSamMask), tileSize(tSize), tilesOrder(tOrder), premultAlpha(pmA), drawParams(drawParams)
+	env(e), showMask(showSamMask), tileSize(tSize), tilesOrder(tOrder), premultAlpha(pmA), drawParams(drawParams), transparent_background(transpBackground)
 {
 	cx1 = xstart + width;
 	cy1 = ystart + height;
@@ -160,6 +160,7 @@ imageFilm_t::imageFilm_t (int width, int height, int xstart, int ystart, colorOu
 	area_cnt = 0;
 
 	pbar = new ConsoleProgressBar_t(80);
+	
 }
 
 imageFilm_t::~imageFilm_t ()
@@ -441,6 +442,7 @@ bool imageFilm_t::doMoreSamples(int x, int y) const
 	contributions from outside area a! (yes, really!) */
 void imageFilm_t::addSample(const colorA_t &c, int x, int y, float dx, float dy, const renderArea_t *a)
 {
+	bool transBackground = getTransparentBackground();
 	colorA_t col = c;
 	
 	if(clamp) col.clampRGB01();
@@ -490,6 +492,8 @@ void imageFilm_t::addSample(const colorA_t &c, int x, int y, float dx, float dy,
 			
 			if(premultAlpha) pixel.col += (col * filterWt) * col.A;
 			else pixel.col += (col * filterWt);
+			
+			if(!transBackground) col.A=1.0; //If setting "Transparent Background" is unchecked, force alpha=1 to make background opaque.
 			
 			pixel.weight += filterWt;
 		}
