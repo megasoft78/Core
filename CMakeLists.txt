@@ -13,7 +13,7 @@ option(WITH_JPEG "Build JPEG image I/O plugin" ON)
 option(WITH_PNG "Build PNG image I/O plugin" ON)
 option(WITH_TIFF "Build TIFF image I/O plugin" ON)
 option(WITH_XML_LOADER "Build XML Loader" ON)
-option(WITH_QT "Enable Qt Gui build" ON)
+option(WITH_QT "Enable Qt Gui build" OFF)
 option(WITH_YAF_PY_BINDINGS "Enable the YafaRay Python bindings" ON)
 option(WITH_YAF_RUBY_BINDINGS "Enable the YafaRay Ruby bindings" OFF)
 option(WITH_OSX_ADDON "Enable the use of blender's included python lib on OSX platforms" OFF)
@@ -22,7 +22,10 @@ option(DEBUG_BUILD "Enable debug build mode" OFF)
 option(EMBED_FONT_QT "Embed font for QT GUI (usefull for some buggy QT installations)" OFF)
 option(WITH_TESTS "Enable building test applications for various components of Yafaray" OFF)
 option(TESTS_ONLY "Build only the test applications, not the rest of the core (implies WITH_TESTS)" OFF)
-option(WITH_OPENCL "Enable the use of OpenCL and GPU accelerated rendering where avaialble" ON)
+option(WITH_OPENCL "Enable the use of OpenCL and GPU accelerated rendering where avaialble" OFF)
+# povman test
+option(WITH_IRR_CACHE "Enable the use of IrradianceCache integrators" OFF)
+# end
 
 ###### Packages and Definitions #########
 
@@ -167,6 +170,14 @@ else(WITH_YAF_RUBY_BINDINGS)
 	message("Building Ruby bindings: no")
 endif(WITH_YAF_RUBY_BINDINGS)
 
+# povman
+ if (WITH_IRR_CACHE)
+	message("Building Irradiance Cache modes: Yes")
+	add_definitions(-DWITH_IRR_CACHE)
+else(WITH_IRR_CACHE)
+	message ("Building Irradiance Cache modes: No")
+endif(WITH_IRR_CACHE)
+
 if(DEBUG_BUILD)
 	set(CMAKE_BUILD_TYPE Debug CACHE STRING "Build mode" FORCE)
 else(DEBUG_BUILD)
@@ -295,6 +306,15 @@ else (USER_DBGFLAGS)
 	set(CMAKE_CXX_FLAGS_DEBUG "${YAF_CXX_FLAGS_DEBUG}" CACHE STRING "Debug compiler flags" FORCE)
 endif (USER_DBGFLAGS)
 
+# Code speedup due mathematical approximations
+if (FAST_MATH)
+	add_definitions(-DFAST_MATH)
+endif (FAST_MATH)
+
+if (FAST_TRIG)
+	add_definitions(-DFAST_TRIG)
+endif (FAST_TRIG)
+
 # Adding subdirectories
 
 if (NOT TESTS_ONLY)
@@ -304,6 +324,7 @@ endif (NOT TESTS_ONLY)
 if (WITH_TESTS OR TESTS_ONLY)
 	add_subdirectory(test)
 endif (WITH_TESTS OR TESTS_ONLY)
+ 
 
 # Generating config headers
 
