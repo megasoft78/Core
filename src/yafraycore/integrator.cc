@@ -105,7 +105,7 @@ void tiledIntegrator_t::precalcDepths()
 	int h = camera->resY();
 	float wt = 0.f; // Dummy variable
 	surfacePoint_t sp;
-	
+
 	for(int i=0; i<h; ++i)
 	{
 		for(int j=0; j<w; ++j)
@@ -284,12 +284,12 @@ bool tiledIntegrator_t::render(imageFilm_t *image)
 	gTimer.addEvent("rendert");
 	gTimer.start("rendert");
 	imageFilm->init(AA_passes);
-	
+
 	maxDepth = 0.f;
 	minDepth = 1e38f;
 
 	if(scene->doDepth()) precalcDepths();
-	
+
 	preRender();
 
 	renderPass(AA_samples, 0, false);
@@ -311,9 +311,9 @@ bool tiledIntegrator_t::render(imageFilm_t *image)
 bool tiledIntegrator_t::renderPass(int samples, int offset, bool adaptive)
 {
 	prePass(samples, offset, adaptive);
-	
+
 	int nthreads = scene->getNumThreads();
-	
+
 #ifdef USING_THREADS
 	if(nthreads>1)
 	{
@@ -354,10 +354,10 @@ bool tiledIntegrator_t::renderPass(int samples, int offset, bool adaptive)
 }
 
 tiledIntegrator_t::PrimaryRayGenerator::PrimaryRayGenerator(
-	renderArea_t &a, int n_samples, int offset, 
+	renderArea_t &a, int n_samples, int offset,
 	tiledIntegrator_t *integrator, renderState_t &rstate
-) : 
-	area(a), n_samples(n_samples), offset(offset), 
+) :
+	area(a), n_samples(n_samples), offset(offset),
 	integrator(integrator), rstate(rstate)
 {
 	scene = integrator->scene;
@@ -368,7 +368,7 @@ tiledIntegrator_t::PrimaryRayGenerator::PrimaryRayGenerator(
 void tiledIntegrator_t::PrimaryRayGenerator::genRays()
 {
 	bool sampleLense = camera->sampleLense();
-	
+
 	diffRay_t c_ray;
 	ray_t d_ray;
 
@@ -380,7 +380,7 @@ void tiledIntegrator_t::PrimaryRayGenerator::genRays()
 
 	int c_ray_idx = 0;
 
-	int x = camera->resX(), y = camera->resY();
+	int x = camera->resX(), y = camera->resY();//povman: GCC 4.4.6 show "warning: unused variable 'y'"
 	int end_x = area.X + area.W;
 	int end_y = area.Y + area.H;
 	for(int i = area.Y; i < end_y; ++i)
@@ -395,7 +395,7 @@ void tiledIntegrator_t::PrimaryRayGenerator::genRays()
 			rstate.pixelNumber = x*i+j;
 			rstate.samplingOffs = fnv_32a_buf(i*fnv_32a_buf(j));//fnv_32a_buf(rstate.pixelNumber);
 			float toff = scrHalton(5, pass_offs+rstate.samplingOffs); // **shall be just the pass number...**
-			
+
 			for(int sample=0; sample<n_samples; ++sample)
 			{
 				rstate.setDefaults();
@@ -443,10 +443,10 @@ void tiledIntegrator_t::PrimaryRayGenerator::genRays()
 
 tiledIntegrator_t::RenderTile_PrimaryRayGenerator::RenderTile_PrimaryRayGenerator(
 	renderArea_t &a, int n_samples, int offset,
-	bool adaptive, int threadID, 
+	bool adaptive, int threadID,
 	tiledIntegrator_t *integrator,	renderState_t &rstate
 ) :
-	PrimaryRayGenerator(a, n_samples, offset, integrator, rstate), 
+	PrimaryRayGenerator(a, n_samples, offset, integrator, rstate),
 	adaptive(adaptive), threadID(threadID)
 {
 	rstate.threadID = threadID;
@@ -454,7 +454,7 @@ tiledIntegrator_t::RenderTile_PrimaryRayGenerator::RenderTile_PrimaryRayGenerato
 	imageFilm = integrator->imageFilm;
 }
 
-bool tiledIntegrator_t::RenderTile_PrimaryRayGenerator::skipPixel(int i, int j) 
+bool tiledIntegrator_t::RenderTile_PrimaryRayGenerator::skipPixel(int i, int j)
 {
 	if(adaptive)
 	{
@@ -493,7 +493,7 @@ void tiledIntegrator_t::RenderTile_PrimaryRayGenerator::rays(
 
 bool tiledIntegrator_t::renderTile(
 	renderArea_t &a, int n_samples, int offset, bool adaptive, int threadID
-) {	
+) {
 	random_t prng(offset * (scene->getCamera()->resX() * a.Y + a.X) + 123);
 	renderState_t rstate(&prng);
 	RenderTile_PrimaryRayGenerator raygen(a, n_samples, offset, adaptive, threadID, this, rstate);
