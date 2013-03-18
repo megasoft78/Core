@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------#
-# Specialized UserConfig File by Povmaniaco, 03/13 
+# Specialized UserConfig File by Povmaniaco, March of 2013 
 # Useful for specific projects for MSVC++ or GCC compilers
 # Also is very useful to create project for each YafaRay experimental branch
 #------------------------------------------------------------------------------#
