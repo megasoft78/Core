@@ -1,5 +1,5 @@
 #------------------------------------------------------------------------------#
-# Specialized UserConfig File by Povmaniaco, March of 2013 
+# Specialized UserConfig File by Povmaniaco, March of 2013
 # Useful for specific projects for MSVC++ or GCC compilers
 # Also is very useful to create project for each YafaRay experimental branch
 #------------------------------------------------------------------------------#
@@ -109,15 +109,15 @@ set(EMBED_FONT_QT OFF)
 #-------------------------------------------------------------------------------#
 SET(TOOLCHAIN "")
 IF(MSVC)
-	# set MSVC version
-	SET(TOOLCHAIN "vc9")
-	IF(NOT MSVC90)
-		SET(TOOLCHAIN "vc10")
-	ENDIF(NOT MSVC90)
+    # set MSVC version
+    SET(TOOLCHAIN "vc9")
+    IF(NOT MSVC90)
+        SET(TOOLCHAIN "vc10")
+    ENDIF(NOT MSVC90)
 ENDIF(MSVC)
 # TODO: Create options for Ubuntu
 IF(MINGW)
-	SET(TOOLCHAIN "mingw")
+        SET(TOOLCHAIN "mingw")
 ENDIF(MINGW)
 # TODO:
 set(USER_INSTALL_PREFIX "h:/yafmaster/${TOOLCHAIN}/binaries")
@@ -131,9 +131,7 @@ set(USER_INSTALL_PREFIX "h:/yafmaster/${TOOLCHAIN}/binaries")
 #
 # Default: bin
 #-------------------------------------------------------------------------------#
-
 #set(YAF_BIN_DIR bin)
-
 #-------------------------------------------------------------------------------#
 # The libraries instalation dir
 #
@@ -182,47 +180,47 @@ set(YAF_BINDINGS_PY_DIR ${YAF_LIB_DIR})
 # Please. Edit the following lines to adapt them to their own configuration.
 #-------------------------------------------------------------------------------#
 IF(MSVC)
-	set(MSDEV c:/YafarayLibs/msvc)
-	IF(MSVC90)
-		set(OPENEXR_INC "${MSDEV}/openexr/include")
-		set(OPENEXR_LIB "${MSDEV}/libs/openlib90")
-	ELSE(MSVC90)
-		set(OPENEXR_INC "${MSDEV}/openinc10")
-		set(OPENEXR_LIB "${MSDEV}/libs/openlib10")
-	ENDIF(MSVC90)
-	#
-	set(YAF_USER_INCLUDE_DIRS 
-			"${MSDEV}/zlib/include" 
-			"${MSDEV}/libxml2/include" 
-			"${MSDEV}/freetype/include" 
-			"${MSDEV}/freetype/include/freetype" 
-			"${MSDEV}/jpeg/include"
-			"${OPENEXR_INC}"
-			"${MSDEV}/python/include"
-			"${MSDEV}/png/include"
-			"${MSDEV}/tiff/include")
-	# add libs
-	set(YAF_USER_LIBRARY_DIRS ${MSDEV}/libs ${OPENEXR_LIB})
-	# bin
-	set(LIBXML2_XMLLINT_EXECUTABLE "${MSDEV}/libs/xmllint.exe")
-	set(PKG_CONFIG_EXECUTABLE "${MSDEV}/libs/xmlcatalog.exe")# ??
-	
+    set(MSDEV c:/YafarayLibs/msvc)
+    IF(MSVC90)
+        set(OPENEXR_INC "${MSDEV}/openexr/include")
+        set(OPENEXR_LIB "${MSDEV}/libs/openlib90")
+    ELSE(MSVC90)
+        set(OPENEXR_INC "${MSDEV}/openinc10")
+        set(OPENEXR_LIB "${MSDEV}/libs/openlib10")
+    ENDIF(MSVC90)
+    #
+    set(YAF_USER_INCLUDE_DIRS
+        "${MSDEV}/zlib/include"
+        "${MSDEV}/libxml2/include"
+        "${MSDEV}/freetype/include"
+        "${MSDEV}/freetype/include/freetype"
+        "${MSDEV}/jpeg/include"
+        "${OPENEXR_INC}"
+        "${MSDEV}/python/include"
+        "${MSDEV}/png/include"
+        "${MSDEV}/tiff/include")
+    # add libs
+    set(YAF_USER_LIBRARY_DIRS ${MSDEV}/libs ${OPENEXR_LIB})
+    # bin
+    set(LIBXML2_XMLLINT_EXECUTABLE "${MSDEV}/libs/xmllint.exe")
+    set(PKG_CONFIG_EXECUTABLE "${MSDEV}/libs/xmlcatalog.exe")# ??
+
 ENDIF(MSVC)
 
 IF(MINGW)
-	# Set MinGW includes and libs
-	set(GCCDEV c:/YafarayLibs/gcc)
-	set(YAF_USER_INCLUDE_DIRS 
-				"${GCCDEV}/include" 
-				"${GCCDEV}/include/python3.3"
-				"${GCCDEV}/include/libxml" 
-				"${GCCDEV}/include/freetype")
-	# add libs
-	set(YAF_USER_LIBRARY_DIRS "${GCCDEV}/lib")
-	# bin
-	set(LIBXML2_XMLLINT_EXECUTABLE "${GCCDEV}/lib/xmllint.exe")
-	set(PKG_CONFIG_EXECUTABLE "${GCCDEV}/lib/xmlcatalog.exe")
-	
+    # Set MinGW includes and libs
+    set(GCCDEV c:/YafarayLibs/gcc)
+    set(YAF_USER_INCLUDE_DIRS
+        "${GCCDEV}/include"
+        "${GCCDEV}/include/python3.3"
+        "${GCCDEV}/include/libxml"
+        "${GCCDEV}/include/freetype")
+    # add libs
+    set(YAF_USER_LIBRARY_DIRS "${GCCDEV}/lib")
+    # bin
+    set(LIBXML2_XMLLINT_EXECUTABLE "${GCCDEV}/lib/xmllint.exe")
+    set(PKG_CONFIG_EXECUTABLE "${GCCDEV}/lib/xmlcatalog.exe")
+
 ENDIF(MINGW)
 
 #-------------------------------------------------------------------------------#
@@ -252,7 +250,7 @@ ENDIF(MINGW)
 #
 # Here you can set the paths to search for executables, you can leave blank
 # the ones you don't need.
-# 
+#
 # Path to qmake executable, need for QT gui intertace.
 #-------------------------------------------------------------------------------#
 #set(YAF_USER_QT_BIN_DIR "")
@@ -281,10 +279,10 @@ set(YAF_USER_SWIG_BIN_DIR "c:/swigwin204")
 #-------------------------------------------------------------------------------#
 #set(YAF_USER_EXTRA_LIBS "")
 #--------------------------# Extra defines variable #---------------------------#
-# Use this variable to set extra defines that your build might require 																				
+# Use this variable to set extra defines that your build might require
 #-------------------------------------------------------------------------------#
 IF(MINGW)
-	set(YAF_USER_EXTRA_DEFS "-DOPENEXR_DLL")
+    set(YAF_USER_EXTRA_DEFS "-DOPENEXR_DLL")
 ENDIF(MINGW)
 #-------------------------------------------------------------------------------#
 # Set Python version. Atm, Blender need a Python 3.3 version
@@ -308,16 +306,12 @@ set(YAF_SHADOW_BIAS 0.0005)
 # Options for building YafaRay as a self-contained add-on for Blender
 # Default: OFF
 #-------------------------------------------------------------------------------#
-
 #set(BLENDER_ADDON ON)
-
 #-------------------------------------------------------------------------------#
 # Set the branch to use when building the add-on. If you use Blender v2.62
 # uncomment the next line and change from "master" to "blender-2.62"
 #-------------------------------------------------------------------------------#
-
 #set(BLENDER_EXPORTER_BRANCH "master")
-
 #----------------------------# Code Speed Up #----------------------------------#
 # Options for building YafaRay with mathematical functions approximations.
 # Default: ON
@@ -345,6 +339,5 @@ set(WITH_OPENCL OFF)
 #-------------------------------------------------------------------------------#
 set(WITH_IRR_CACHE ON)
 #-------------------------------------------------------------------------------#
-#----------------------------- End of file -------------------------------------#						
 #-------------------------------------------------------------------------------#
 
