@@ -82,8 +82,8 @@ struct YAFRAYCORE_EXPORT stratifiedHemisphere {
 	inline int getN() const { return N; }
 
 private:
-	int M; //!< number of divisions along theta
-	int N; //!< number of divisions along phi
+	const int M; //!< number of divisions along theta
+	const int N; //!< number of divisions along phi
 
 	void calcVks();
 	void calcVkMinuses();
