@@ -23,8 +23,10 @@ option(EMBED_FONT_QT "Embed font for QT GUI (usefull for some buggy QT installat
 option(WITH_TESTS "Enable building test applications for various components of Yafaray" OFF)
 option(TESTS_ONLY "Build only the test applications, not the rest of the core (implies WITH_TESTS)" OFF)
 option(WITH_OPENCL "Enable the use of OpenCL and GPU accelerated rendering where avaialble" OFF)
+option(FAST_MATH "Enable mathematic approximations to make code faster" OFF)
+option(FAST_TRIG "Enable trigonometric approximations to make code faster" OFF)
 # povman test
-option(WITH_IRR_CACHE "Enable the use of IrradianceCache integrators" OFF)
+option(WITH_IRR_CACHE "Enable the use of IrradianceCache integrators" ON)
 # end
 
 ###### Packages and Definitions #########
@@ -132,9 +134,9 @@ else(WITH_PNG)
 	message("Using PNG: no")
 endif(WITH_PNG)
 
-if (WITH_OPENCL)
+if(WITH_OPENCL)
 	find_package(OpenCL REQUIRED)
-endif (WITH_OPENCL)
+endif(WITH_OPENCL)
 
 if(WITH_TIFF)
 	find_package(TIFF REQUIRED)
@@ -171,7 +173,7 @@ else(WITH_YAF_RUBY_BINDINGS)
 endif(WITH_YAF_RUBY_BINDINGS)
 
 # povman
- if (WITH_IRR_CACHE)
+ if(WITH_IRR_CACHE)
 	message("Building Irradiance Cache modes: Yes")
 	add_definitions(-DWITH_IRR_CACHE)
 else(WITH_IRR_CACHE)
@@ -186,9 +188,9 @@ endif(DEBUG_BUILD)
 
 set(YAF_INCLUDE_DIRS ${CMAKE_SOURCE_DIR}/include ${CMAKE_BINARY_DIR})
 
-if (USER_INSTALL_PREFIX)
+if(USER_INSTALL_PREFIX)
 	set(CMAKE_INSTALL_PREFIX ${USER_INSTALL_PREFIX})
-endif (USER_INSTALL_PREFIX)
+endif(USER_INSTALL_PREFIX)
 
 if(NOT WIN32)
 	# installation directories
@@ -294,36 +296,36 @@ else(NOT WIN32)
 	endif(NOT YAF_PLUGIN_DIR)
 endif(NOT WIN32)
 
-if (USER_RELFLAGS)
+if(USER_RELFLAGS)
 	set(CMAKE_CXX_FLAGS_RELEASE "${YAF_CXX_FLAGS_RELEASE} ${USER_RELFLAGS}" CACHE STRING "Release compiler flags" FORCE)
-else (USER_RELFLAGS)
+else(USER_RELFLAGS)
 	set(CMAKE_CXX_FLAGS_RELEASE "${YAF_CXX_FLAGS_RELEASE}" CACHE STRING "Release compiler flags" FORCE)
-endif (USER_RELFLAGS)
+endif(USER_RELFLAGS)
 
-if (USER_DBGFLAGS)
+if(USER_DBGFLAGS)
 	set(CMAKE_CXX_FLAGS_DEBUG "${YAF_CXX_FLAGS_DEBUG} ${USER_DEBUG}" CACHE STRING "Debug compiler flags" FORCE)
-else (USER_DBGFLAGS)
+else(USER_DBGFLAGS)
 	set(CMAKE_CXX_FLAGS_DEBUG "${YAF_CXX_FLAGS_DEBUG}" CACHE STRING "Debug compiler flags" FORCE)
-endif (USER_DBGFLAGS)
+endif(USER_DBGFLAGS)
 
 # Code speedup due mathematical approximations
-if (FAST_MATH)
+if(FAST_MATH)
 	add_definitions(-DFAST_MATH)
-endif (FAST_MATH)
+endif(FAST_MATH)
 
-if (FAST_TRIG)
+if(FAST_TRIG)
 	add_definitions(-DFAST_TRIG)
-endif (FAST_TRIG)
+endif(FAST_TRIG)
 
 # Adding subdirectories
 
-if (NOT TESTS_ONLY)
+if(NOT TESTS_ONLY)
 	add_subdirectory(src)
-endif (NOT TESTS_ONLY)
+endif(NOT TESTS_ONLY)
 
-if (WITH_TESTS OR TESTS_ONLY)
+if(WITH_TESTS OR TESTS_ONLY)
 	add_subdirectory(test)
-endif (WITH_TESTS OR TESTS_ONLY)
+endif(WITH_TESTS OR TESTS_ONLY)
  
 
 # Generating config headers
