@@ -72,7 +72,7 @@ struct YAFRAYCORE_EXPORT stratifiedHemisphere {
     //!< get vector u_k: base-plane vector in the direction (pi/2, phi_k)
 	inline const vector3d_t &getUk(int k) const { return uk[k]; }
     //!< get tan(theta_j)
-	inline float getTanTheta(int j) const { return tanTheta[j]; } 
+	inline float getTanTheta(int j) const { return tanTheta[j]; }
 	inline float getSinTheta(int j) const { return sinTheta[j]; }
 	inline float getSinThetaMinus(int j) const { return sinThetaMinus[j]; }
 	inline float getCosTheta(int j) const { return cosTheta[j]; }
@@ -82,8 +82,8 @@ struct YAFRAYCORE_EXPORT stratifiedHemisphere {
 	inline int getN() const { return N; }
 
 private:
-	const int M; //!< number of divisions along theta
-	const int N; //!< number of divisions along phi
+	int M; //!< number of divisions along theta
+	int N; //!< number of divisions along phi
 
 	void calcVks();
 	void calcVkMinuses();
