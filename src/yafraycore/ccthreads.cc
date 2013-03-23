@@ -239,6 +239,7 @@ void thread_t::wait()
 thread_t::~thread_t()
 {
 	if(running) wait();
+	else pthread_join(id,NULL); //DavidBluecame: to fix the hangs in Linux
 }
 #elif defined( WIN32_THREADS )
 DWORD WINAPI wrapper (void *data)
