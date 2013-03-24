@@ -347,6 +347,7 @@ void photonKdTree<T>::recursiveLookup(const point3d_t &p, const LookupProc &proc
 		dat->sourceDepth =  nodes[nodeNum+1].data->sourceDepth*weight + nodes[currNode->getRightChild()].data->sourceDepth*(1-weight);
 		
 		currNode->data = dat;
+		delete dat; //DavidBluecame: to fix memory leak in Photon Mapping
 	}
 	
 	template<class T>

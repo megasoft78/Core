@@ -223,6 +223,7 @@ void thread_t::run()
 {
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr,PTHREAD_CREATE_JOINABLE);
+	pthread_attr_setstacksize(&attr,1048576); //DavidBluecame: to make the system more robust and less prone to crashes, specially with Photon Mapping
 	pthread_create(&id,&attr,wrapper,this);
 	running=true;
 }
@@ -239,6 +240,7 @@ void thread_t::wait()
 thread_t::~thread_t()
 {
 	if(running) wait();
+	else pthread_join(id,NULL); //DavidBluecame: to fix the hangs in Linux
 }
 #elif defined( WIN32_THREADS )
 DWORD WINAPI wrapper (void *data)
