@@ -362,8 +362,17 @@ float shinyDiffuseMat_t::pdf(const renderState_t &state, const surfacePoint_t &s
 
 
 
-// todo!
-
+/** Perfect specular reflection.
+ *  Calculate perfect specular reflection and refraction from the material for
+ *  a given surface point \a sp and a given incident ray direction \a wo
+ *  @param  state Render state
+ *  @param  sp Surface point
+ *  @param  wo Incident ray direction
+ *  @param  doReflect Boolean value which is true if you have a reflection, false otherwise
+ *  @param  doRefract Boolean value which is true if you have a refraction, false otherwise
+ *  @param  wi Array of two vectors to record reflected ray direction (wi[0]) and refracted ray direction (wi[1])
+ *  @param  col Array of two colors to record reflected ray color (col[0]) and refracted ray color (col[1])
+ */
 void shinyDiffuseMat_t::getSpecular(const renderState_t &state, const surfacePoint_t &sp, const vector3d_t &wo,
 							  bool &reflect, bool &refract, vector3d_t *const dir, color_t *const col)const
 {
@@ -560,7 +569,7 @@ material_t* shinyDiffuseMat_t::factory(paraMap_t &params, std::list<paraMap_t> &
 	mat->config(diffuseS, specReflS, transpS, translS, bumpS);
 
 	//===!!!=== test <<< This test should go, is useless, DT
-	if(params.getParam("name", name))
+	/*if(params.getParam("name", name))
 	{
 		if(name->substr(0, 6) == "MAsss_")
 		{
@@ -572,7 +581,7 @@ material_t* shinyDiffuseMat_t::factory(paraMap_t &params, std::list<paraMap_t> &
 			mat->volI = render.createVolumeH(*name, map);
 			mat->bsdfFlags |= BSDF_VOLUMETRIC;
 		}
-	}
+	}*/
 	//===!!!=== end of test
 
 	return mat;
